@@ -11,7 +11,7 @@ serve(async (req) => {
   }
 
   try {
-    const { ingredients, productName } = await req.json();
+    const { ingredients, productName, image } = await req.json();
     const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
 
     if (!LOVABLE_API_KEY) {
@@ -19,6 +19,7 @@ serve(async (req) => {
     }
 
     console.log("Analyzing ingredients for product:", productName);
+    console.log("Has image:", !!image);
 
     const systemPrompt = `أنت "المجلس العلمي للكيمياء الغذائية (NutriChem-V4.0 Scientific Directorate)". أنت نظام تحليلي خبير مهمتك فحص مكونات المنتجات الغذائية وتقديم تحليل علمي شامل باللغة العربية.
 
@@ -29,6 +30,48 @@ serve(async (req) => {
 4. تحليل دقيق: صنف كل مكون إلى: سلبي، إيجابي، أو مشكوك فيه
 
 يجب أن تحلل المكونات وتصنفها بدقة مع تقديم تفسير علمي لكل تصنيف.`;
+
+    // If image is provided, use vision to extract ingredients first
+    let ingredientsText = ingredients;
+    if (image) {
+      console.log("Extracting ingredients from image...");
+      const visionResponse = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${LOVABLE_API_KEY}`,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          model: "google/gemini-2.5-flash",
+          messages: [
+            {
+              role: "user",
+              content: [
+                {
+                  type: "text",
+                  text: "استخرج قائمة المكونات من هذه الصورة بشكل دقيق. اكتب فقط قائمة المكونات كما هي مكتوبة على المنتج، بدون أي إضافات أو تعليقات. إذا كانت القائمة بالعربية، اكتبها بالعربية. إذا كانت بالإنجليزية، اكتبها بالإنجليزية."
+                },
+                {
+                  type: "image_url",
+                  image_url: {
+                    url: image
+                  }
+                }
+              ]
+            }
+          ],
+          temperature: 0.1,
+        }),
+      });
+
+      if (!visionResponse.ok) {
+        throw new Error("Failed to extract ingredients from image");
+      }
+
+      const visionData = await visionResponse.json();
+      ingredientsText = visionData.choices[0].message.content;
+      console.log("Extracted ingredients:", ingredientsText);
+    }
 
     const response = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
       method: "POST",
@@ -43,7 +86,7 @@ serve(async (req) => {
           {
             role: "user",
             content: `حلل المكونات التالية للمنتج "${productName}":
-${ingredients}
+${ingredientsText}
 
 قدم التحليل بصيغة JSON التالية:
 {
