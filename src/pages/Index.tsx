@@ -3,7 +3,7 @@ import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { Input } from "@/components/ui/input";
 import { Card } from "@/components/ui/card";
-import { Loader2, Beaker, AlertCircle } from "lucide-react";
+import { Loader2, Beaker, AlertCircle, Upload, X } from "lucide-react";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import AnalysisResults from "@/components/AnalysisResults";
@@ -37,10 +37,38 @@ const Index = () => {
   const [ingredients, setIngredients] = useState("");
   const [isAnalyzing, setIsAnalyzing] = useState(false);
   const [analysisResult, setAnalysisResult] = useState<AnalysisResult | null>(null);
+  const [imageFile, setImageFile] = useState<File | null>(null);
+  const [imagePreview, setImagePreview] = useState<string | null>(null);
+
+  const handleImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      if (file.size > 5 * 1024 * 1024) {
+        toast.error("حجم الصورة كبير جداً. الحد الأقصى 5 ميجابايت");
+        return;
+      }
+      setImageFile(file);
+      const reader = new FileReader();
+      reader.onloadend = () => {
+        setImagePreview(reader.result as string);
+      };
+      reader.readAsDataURL(file);
+    }
+  };
+
+  const handleRemoveImage = () => {
+    setImageFile(null);
+    setImagePreview(null);
+  };
 
   const handleAnalyze = async () => {
-    if (!productName.trim() || !ingredients.trim()) {
-      toast.error("يرجى إدخال اسم المنتج والمكونات");
+    if (!productName.trim() && !imageFile) {
+      toast.error("يرجى إدخال اسم المنتج أو رفع صورة");
+      return;
+    }
+
+    if (!imageFile && !ingredients.trim()) {
+      toast.error("يرجى إدخال المكونات أو رفع صورة");
       return;
     }
 
@@ -48,8 +76,21 @@ const Index = () => {
     setAnalysisResult(null);
 
     try {
+      const body: any = { productName };
+      
+      if (imageFile) {
+        const reader = new FileReader();
+        const base64Promise = new Promise<string>((resolve) => {
+          reader.onloadend = () => resolve(reader.result as string);
+          reader.readAsDataURL(imageFile);
+        });
+        body.image = await base64Promise;
+      } else {
+        body.ingredients = ingredients;
+      }
+
       const { data, error } = await supabase.functions.invoke("analyze-ingredients", {
-        body: { productName, ingredients },
+        body,
       });
 
       if (error) throw error;
@@ -68,6 +109,8 @@ const Index = () => {
     setProductName("");
     setIngredients("");
     setAnalysisResult(null);
+    setImageFile(null);
+    setImagePreview(null);
   };
 
   return (
@@ -127,26 +170,75 @@ const Index = () => {
                   />
                 </div>
 
+                {/* Image Upload Section */}
                 <div className="space-y-2">
                   <label className="text-sm font-medium text-foreground">
-                    قائمة المكونات
+                    رفع صورة المنتج (اختياري)
                   </label>
-                  <Textarea
-                    placeholder="أدخل قائمة المكونات كما هي مكتوبة على المنتج..."
-                    value={ingredients}
-                    onChange={(e) => setIngredients(e.target.value)}
-                    className="min-h-[200px] text-base leading-relaxed"
-                  />
+                  {!imagePreview ? (
+                    <label className="flex flex-col items-center justify-center w-full h-40 border-2 border-dashed border-border rounded-lg cursor-pointer hover:border-primary/50 hover:bg-primary/5 transition-colors">
+                      <div className="flex flex-col items-center justify-center pt-5 pb-6">
+                        <Upload className="w-10 h-10 mb-3 text-muted-foreground" />
+                        <p className="mb-2 text-sm text-muted-foreground">
+                          <span className="font-semibold">انقر لرفع صورة</span> أو اسحب الصورة هنا
+                        </p>
+                        <p className="text-xs text-muted-foreground">
+                          PNG, JPG أو WEBP (حد أقصى 5 ميجابايت)
+                        </p>
+                      </div>
+                      <input
+                        type="file"
+                        className="hidden"
+                        accept="image/*"
+                        onChange={handleImageUpload}
+                      />
+                    </label>
+                  ) : (
+                    <div className="relative">
+                      <img
+                        src={imagePreview}
+                        alt="معاينة"
+                        className="w-full h-60 object-contain rounded-lg border border-border"
+                      />
+                      <Button
+                        onClick={handleRemoveImage}
+                        variant="destructive"
+                        size="icon"
+                        className="absolute top-2 left-2"
+                      >
+                        <X className="h-4 w-4" />
+                      </Button>
+                    </div>
+                  )}
                   <p className="text-xs text-muted-foreground">
-                    انسخ المكونات من عبوة المنتج والصقها هنا
+                    التقط صورة واضحة لقائمة المكونات على عبوة المنتج
                   </p>
                 </div>
+
+                {/* Manual Input (shown only if no image) */}
+                {!imageFile && (
+                  <div className="space-y-2">
+                    <label className="text-sm font-medium text-foreground">
+                      أو أدخل المكونات يدوياً
+                    </label>
+                    <Textarea
+                      placeholder="أدخل قائمة المكونات كما هي مكتوبة على المنتج..."
+                      value={ingredients}
+                      onChange={(e) => setIngredients(e.target.value)}
+                      rows={6}
+                      className="resize-none text-lg"
+                    />
+                    <p className="text-xs text-muted-foreground">
+                      يمكنك نسخ قائمة المكونات مباشرة من عبوة المنتج
+                    </p>
+                  </div>
+                )}
 
                 <Button
                   onClick={handleAnalyze}
                   disabled={isAnalyzing}
-                  size="lg"
                   className="w-full"
+                  size="lg"
                 >
                   {isAnalyzing ? (
                     <>
