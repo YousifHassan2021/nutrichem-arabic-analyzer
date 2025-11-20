@@ -13,6 +13,7 @@ interface AnalysisResult {
   overallScore: number;
   verdict: string;
   summary: string;
+  halalStatus: string;
   negativeIngredients: Array<{
     name: string;
     description: string;
