@@ -3,10 +3,12 @@ import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { Input } from "@/components/ui/input";
 import { Card } from "@/components/ui/card";
-import { Loader2, Beaker, AlertCircle, Upload, X } from "lucide-react";
+import { Loader2, Beaker, AlertCircle, Upload, X, ScanLine } from "lucide-react";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import AnalysisResults from "@/components/AnalysisResults";
+import { BarcodeScanner } from '@capacitor-mlkit/barcode-scanning';
+import { Capacitor } from '@capacitor/core';
 
 interface AnalysisResult {
   productName: string;
@@ -40,6 +42,8 @@ const Index = () => {
   const [analysisResult, setAnalysisResult] = useState<AnalysisResult | null>(null);
   const [imageFile, setImageFile] = useState<File | null>(null);
   const [imagePreview, setImagePreview] = useState<string | null>(null);
+  const [isScanning, setIsScanning] = useState(false);
+  const isNative = Capacitor.isNativePlatform();
 
   const handleImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -114,6 +118,49 @@ const Index = () => {
     setImagePreview(null);
   };
 
+  const handleBarcodeScanner = async () => {
+    if (!isNative) {
+      toast.error("مسح الباركود متاح فقط في تطبيق الموبايل");
+      return;
+    }
+
+    try {
+      setIsScanning(true);
+
+      // Request permissions
+      const permissionStatus = await BarcodeScanner.requestPermissions();
+      
+      if (permissionStatus.camera !== 'granted') {
+        toast.error("يجب السماح بالوصول إلى الكاميرا");
+        setIsScanning(false);
+        return;
+      }
+
+      // Start scanning
+      const { barcodes } = await BarcodeScanner.scan();
+
+      if (barcodes && barcodes.length > 0) {
+        const barcode = barcodes[0].displayValue;
+        toast.success(`تم مسح الباركود: ${barcode}`);
+        
+        // Here you would typically call an API to get product info
+        // For now, we'll just set the product name
+        setProductName(`منتج - ${barcode}`);
+        
+        // You could integrate with a barcode API here
+        // For example: Open Food Facts API
+        // fetchProductInfo(barcode);
+      } else {
+        toast.error("لم يتم العثور على باركود");
+      }
+    } catch (error) {
+      console.error("Barcode scanning error:", error);
+      toast.error("حدث خطأ أثناء مسح الباركود");
+    } finally {
+      setIsScanning(false);
+    }
+  };
+
   return (
     <div className="min-h-screen bg-background" dir="rtl">
       {/* Header */}
@@ -163,12 +210,35 @@ const Index = () => {
                   <label className="text-sm font-medium text-foreground">
                     اسم المنتج
                   </label>
-                  <Input
-                    placeholder="مثال: عصير برتقال طبيعي"
-                    value={productName}
-                    onChange={(e) => setProductName(e.target.value)}
-                    className="text-lg"
-                  />
+                  <div className="flex gap-2">
+                    <Input
+                      placeholder="مثال: عصير برتقال طبيعي"
+                      value={productName}
+                      onChange={(e) => setProductName(e.target.value)}
+                      className="text-lg flex-1"
+                    />
+                    {isNative && (
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="icon"
+                        onClick={handleBarcodeScanner}
+                        disabled={isScanning}
+                        className="shrink-0"
+                      >
+                        {isScanning ? (
+                          <Loader2 className="h-5 w-5 animate-spin" />
+                        ) : (
+                          <ScanLine className="h-5 w-5" />
+                        )}
+                      </Button>
+                    )}
+                  </div>
+                  {isNative && (
+                    <p className="text-xs text-muted-foreground">
+                      اضغط على أيقونة المسح لقراءة الباركود تلقائياً
+                    </p>
+                  )}
                 </div>
 
                 {/* Image Upload Section */}
