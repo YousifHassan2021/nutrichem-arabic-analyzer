@@ -15,6 +15,7 @@ interface AnalysisResult {
   overallScore: number;
   verdict: string;
   summary: string;
+  halalStatus: string;
   negativeIngredients: Array<{
     name: string;
     description: string;
@@ -64,6 +65,18 @@ const AnalysisResults = ({ result, onReset }: AnalysisResultsProps) => {
     return <Badge variant={config.variant as any}>{config.text}</Badge>;
   };
 
+  const getHalalBadge = (status: string) => {
+    const isHalal = status?.toLowerCase().includes("حلال");
+    return (
+      <Badge 
+        variant={isHalal ? "default" : "destructive"}
+        className={`text-base px-4 py-1 ${isHalal ? "bg-success text-white" : "bg-destructive text-white"}`}
+      >
+        {isHalal ? "✓ حلال" : "✗ حرام"}
+      </Badge>
+    );
+  };
+
   return (
     <div className="space-y-6" dir="rtl">
       {/* Header with Score */}
@@ -72,9 +85,12 @@ const AnalysisResults = ({ result, onReset }: AnalysisResultsProps) => {
           <div className="flex items-start justify-between gap-4">
             <div className="space-y-2">
               <h2 className="text-3xl font-bold text-foreground">{result.productName}</h2>
-              <Badge className="text-sm" variant="outline">
-                {result.verdict}
-              </Badge>
+              <div className="flex gap-2 flex-wrap">
+                <Badge className="text-sm" variant="outline">
+                  {result.verdict}
+                </Badge>
+                {result.halalStatus && getHalalBadge(result.halalStatus)}
+              </div>
             </div>
             <div className="text-left">
               <div className={`text-5xl font-bold ${getScoreColor(result.overallScore)}`}>
