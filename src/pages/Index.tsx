@@ -1,14 +1,16 @@
 import { useState } from "react";
+import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { Input } from "@/components/ui/input";
 import { Card } from "@/components/ui/card";
-import { Loader2, Beaker, AlertCircle, Upload, X, ScanLine } from "lucide-react";
+import { Loader2, Beaker, AlertCircle, Upload, X, ScanLine, Crown, LogIn, LogOut } from "lucide-react";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import AnalysisResults from "@/components/AnalysisResults";
 import { BarcodeScanner } from '@capacitor-mlkit/barcode-scanning';
 import { Capacitor } from '@capacitor/core';
+import { useAuth } from "@/contexts/AuthContext";
 
 interface AnalysisResult {
   productName: string;
@@ -44,6 +46,8 @@ const Index = () => {
   const [imagePreview, setImagePreview] = useState<string | null>(null);
   const [isScanning, setIsScanning] = useState(false);
   const isNative = Capacitor.isNativePlatform();
+  const { user, subscription, signOut } = useAuth();
+  const navigate = useNavigate();
 
   const handleImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -166,17 +170,64 @@ const Index = () => {
       {/* Header */}
       <header className="border-b border-border bg-card/50 backdrop-blur-sm sticky top-0 z-10">
         <div className="container mx-auto px-4 py-6">
-          <div className="flex items-center gap-3">
-            <div className="bg-primary/10 p-3 rounded-xl">
-              <Beaker className="h-8 w-8 text-primary" />
+          <div className="flex items-center justify-between gap-3">
+            <div className="flex items-center gap-3">
+              <div className="bg-primary/10 p-3 rounded-xl">
+                <Beaker className="h-8 w-8 text-primary" />
+              </div>
+              <div>
+                <h1 className="text-xl md:text-3xl font-bold text-foreground">
+                  المجلس العلمي للكيمياء الغذائية
+                </h1>
+                <p className="text-xs md:text-sm text-muted-foreground">
+                  NutriChem-V4.0 Scientific Directorate
+                </p>
+              </div>
             </div>
-            <div>
-              <h1 className="text-2xl md:text-3xl font-bold text-foreground">
-                المجلس العلمي للكيمياء الغذائية
-              </h1>
-              <p className="text-sm text-muted-foreground">
-                NutriChem-V4.0 Scientific Directorate
-              </p>
+            <div className="flex items-center gap-2">
+              {user ? (
+                <>
+                  {subscription?.subscribed && (
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      className="gap-2"
+                      onClick={() => navigate("/subscription")}
+                    >
+                      <Crown className="h-4 w-4 text-primary" />
+                      <span className="hidden md:inline">مشترك</span>
+                    </Button>
+                  )}
+                  {!subscription?.subscribed && (
+                    <Button
+                      variant="default"
+                      size="sm"
+                      className="gap-2"
+                      onClick={() => navigate("/subscription")}
+                    >
+                      <Crown className="h-4 w-4" />
+                      <span className="hidden md:inline">اشترك الآن</span>
+                    </Button>
+                  )}
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={signOut}
+                  >
+                    <LogOut className="h-4 w-4" />
+                  </Button>
+                </>
+              ) : (
+                <Button
+                  variant="default"
+                  size="sm"
+                  onClick={() => navigate("/auth")}
+                  className="gap-2"
+                >
+                  <LogIn className="h-4 w-4" />
+                  <span className="hidden md:inline">تسجيل الدخول</span>
+                </Button>
+              )}
             </div>
           </div>
         </div>
