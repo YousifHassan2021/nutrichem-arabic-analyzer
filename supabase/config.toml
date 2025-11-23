@@ -2,12 +2,3 @@ project_id = "kzyfwsisfxveibsgudlm"
 
 [functions.analyze-ingredients]
 verify_jwt = false
-
-[functions.create-checkout]
-verify_jwt = true
-
-[functions.check-subscription]
-verify_jwt = true
-
-[functions.paymob-webhook]
-verify_jwt = false
