@@ -62,9 +62,22 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       }
     );
 
-    supabase.auth.getSession().then(({ data: { session } }) => {
-      setSession(session);
-      setUser(session?.user ?? null);
+    const initAuth = async () => {
+      const { data: { session } } = await supabase.auth.getSession();
+      
+      if (!session) {
+        const { data, error } = await supabase.auth.signInAnonymously();
+        if (error) {
+          console.error("Error signing in anonymously:", error);
+        } else {
+          setSession(data.session);
+          setUser(data.user);
+        }
+      } else {
+        setSession(session);
+        setUser(session.user);
+      }
+      
       setLoading(false);
       
       if (session?.user) {
@@ -72,7 +85,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           checkSubscription();
         }, 0);
       }
-    });
+    };
+
+    initAuth();
 
     const interval = setInterval(() => {
       if (session) {

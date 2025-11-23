@@ -51,10 +51,11 @@ serve(async (req) => {
       customer_email: customerId ? undefined : user.email,
       line_items: [
         {
-          price: "price_1SWCMG4KrpArtVsLIXesajfH",
+          price: "price_1SWVgs4KrpArtVsL4WKA4d0i",
           quantity: 1,
         },
       ],
+      client_reference_id: user.id,
       mode: "subscription",
       success_url: `${req.headers.get("origin")}/subscription-success`,
       cancel_url: `${req.headers.get("origin")}/`,

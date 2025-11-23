@@ -1,10 +1,9 @@
-import { useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { Input } from "@/components/ui/input";
 import { Card } from "@/components/ui/card";
-import { Loader2, Beaker, AlertCircle, Upload, X, ScanLine, Crown, LogIn, LogOut } from "lucide-react";
+import { Loader2, Beaker, AlertCircle, Upload, X, ScanLine, Crown } from "lucide-react";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import AnalysisResults from "@/components/AnalysisResults";
@@ -45,9 +44,15 @@ const Index = () => {
   const [imageFile, setImageFile] = useState<File | null>(null);
   const [imagePreview, setImagePreview] = useState<string | null>(null);
   const [isScanning, setIsScanning] = useState(false);
+  const [subscribeLoading, setSubscribeLoading] = useState(false);
   const isNative = Capacitor.isNativePlatform();
-  const { user, subscription, signOut } = useAuth();
-  const navigate = useNavigate();
+  const { session, subscription, checkSubscription } = useAuth();
+
+  useEffect(() => {
+    if (session) {
+      checkSubscription();
+    }
+  }, [session]);
 
   const handleImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -70,7 +75,35 @@ const Index = () => {
     setImagePreview(null);
   };
 
+  const handleSubscribe = async () => {
+    if (!session) return;
+    
+    setSubscribeLoading(true);
+    try {
+      const { data, error } = await supabase.functions.invoke("create-checkout", {
+        headers: {
+          Authorization: `Bearer ${session.access_token}`,
+        },
+      });
+
+      if (error) throw error;
+      
+      if (data?.url) {
+        window.open(data.url, "_blank");
+      }
+    } catch (error: any) {
+      toast.error(error.message || "حدث خطأ أثناء إنشاء جلسة الدفع");
+    } finally {
+      setSubscribeLoading(false);
+    }
+  };
+
   const handleAnalyze = async () => {
+    if (!subscription?.subscribed) {
+      toast.error("يرجى الاشتراك أولاً للحصول على التحليل");
+      return;
+    }
+
     if (!productName.trim() && !imageFile) {
       toast.error("يرجى إدخال اسم المنتج أو رفع صورة");
       return;
@@ -185,47 +218,25 @@ const Index = () => {
               </div>
             </div>
             <div className="flex items-center gap-2">
-              {user ? (
-                <>
-                  {subscription?.subscribed && (
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      className="gap-2"
-                      onClick={() => navigate("/subscription")}
-                    >
-                      <Crown className="h-4 w-4 text-primary" />
-                      <span className="hidden md:inline">مشترك</span>
-                    </Button>
-                  )}
-                  {!subscription?.subscribed && (
-                    <Button
-                      variant="default"
-                      size="sm"
-                      className="gap-2"
-                      onClick={() => navigate("/subscription")}
-                    >
-                      <Crown className="h-4 w-4" />
-                      <span className="hidden md:inline">اشترك الآن</span>
-                    </Button>
-                  )}
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    onClick={signOut}
-                  >
-                    <LogOut className="h-4 w-4" />
-                  </Button>
-                </>
+              {subscription?.subscribed ? (
+                <div className="flex items-center gap-2 px-3 py-2 bg-primary/10 border border-primary rounded-lg">
+                  <Crown className="h-4 w-4 text-primary" />
+                  <span className="text-sm font-medium text-primary">مشترك</span>
+                </div>
               ) : (
                 <Button
                   variant="default"
                   size="sm"
-                  onClick={() => navigate("/auth")}
                   className="gap-2"
+                  onClick={handleSubscribe}
+                  disabled={subscribeLoading}
                 >
-                  <LogIn className="h-4 w-4" />
-                  <span className="hidden md:inline">تسجيل الدخول</span>
+                  {subscribeLoading ? (
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                  ) : (
+                    <Crown className="h-4 w-4" />
+                  )}
+                  <span className="hidden md:inline">اشترك الآن</span>
                 </Button>
               )}
             </div>
@@ -237,6 +248,52 @@ const Index = () => {
       <main className="container mx-auto px-4 py-8 max-w-6xl">
         {!analysisResult ? (
           <div className="space-y-8">
+            {/* Subscription Banner */}
+            {!subscription?.subscribed && (
+              <Card className="p-6 bg-gradient-to-r from-primary/10 to-secondary/10 border-primary/20">
+                <div className="flex flex-col md:flex-row items-center justify-between gap-4">
+                  <div className="flex gap-4 flex-1">
+                    <Crown className="h-8 w-8 text-primary flex-shrink-0" />
+                    <div className="space-y-2">
+                      <h2 className="font-bold text-lg text-foreground">
+                        اشترك للحصول على التحليل الكامل
+                      </h2>
+                      <p className="text-sm text-muted-foreground">
+                        10 ريال فقط لمدة 3 أشهر - تحليل غير محدود للمكونات
+                      </p>
+                      <ul className="space-y-1 text-sm">
+                        <li className="flex items-center gap-2">
+                          <span className="text-primary">✓</span>
+                          <span>تحليل علمي مفصل للمكونات</span>
+                        </li>
+                        <li className="flex items-center gap-2">
+                          <span className="text-primary">✓</span>
+                          <span>تحديد حلال أو حرام</span>
+                        </li>
+                        <li className="flex items-center gap-2">
+                          <span className="text-primary">✓</span>
+                          <span>مسح الباركود وتحميل الصور</span>
+                        </li>
+                      </ul>
+                    </div>
+                  </div>
+                  <Button 
+                    onClick={handleSubscribe}
+                    disabled={subscribeLoading}
+                    size="lg"
+                    className="w-full md:w-auto min-w-[160px]"
+                  >
+                    {subscribeLoading ? (
+                      <Loader2 className="ml-2 h-5 w-5 animate-spin" />
+                    ) : (
+                      <Crown className="ml-2 h-5 w-5" />
+                    )}
+                    اشترك الآن
+                  </Button>
+                </div>
+              </Card>
+            )}
+
             {/* Info Banner */}
             <Card className="p-6 bg-primary/5 border-primary/20">
               <div className="flex gap-4">

@@ -30,11 +30,8 @@ const SubscriptionSuccess = () => {
             يمكنك الآن الاستمتاع بجميع ميزات التطبيق المتميزة
           </p>
           <div className="flex flex-col gap-3">
-            <Button onClick={() => navigate("/")}>
+            <Button onClick={() => navigate("/")} size="lg">
               ابدأ التحليل
-            </Button>
-            <Button variant="outline" onClick={() => navigate("/subscription")}>
-              عرض تفاصيل الاشتراك
             </Button>
           </div>
         </CardContent>
