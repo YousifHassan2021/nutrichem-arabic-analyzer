@@ -51,7 +51,20 @@ serve(async (req) => {
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ api_key: apiKey }),
     });
+    
+    if (!authResponse.ok) {
+      const errorText = await authResponse.text();
+      logStep("Auth API error", { status: authResponse.status, error: errorText });
+      throw new Error(`Failed to get auth token: ${authResponse.status}`);
+    }
+    
     const authData = await authResponse.json();
+    logStep("Auth response", authData);
+    
+    if (!authData.token) {
+      throw new Error("No auth token received from Paymob");
+    }
+    
     const authToken = authData.token;
     logStep("Got auth token");
 
@@ -63,7 +76,7 @@ serve(async (req) => {
       body: JSON.stringify({
         auth_token: authToken,
         delivery_needed: "false",
-        amount_cents: "1000", // 10 SAR = 1000 halalas
+        amount_cents: "1000",
         currency: "SAR",
         items: [{
           name: "اشتراك ربع سنوي",
@@ -73,7 +86,20 @@ serve(async (req) => {
         }]
       }),
     });
+    
+    if (!orderResponse.ok) {
+      const errorText = await orderResponse.text();
+      logStep("Order API error", { status: orderResponse.status, error: errorText });
+      throw new Error(`Failed to register order: ${orderResponse.status}`);
+    }
+    
     const orderData = await orderResponse.json();
+    logStep("Order response", orderData);
+    
+    if (!orderData.id) {
+      throw new Error("No order ID received from Paymob");
+    }
+    
     const orderId = orderData.id;
     logStep("Order registered", { orderId });
 
@@ -106,7 +132,20 @@ serve(async (req) => {
         integration_id: parseInt(integrationId),
       }),
     });
+    
+    if (!paymentKeyResponse.ok) {
+      const errorText = await paymentKeyResponse.text();
+      logStep("Payment key API error", { status: paymentKeyResponse.status, error: errorText });
+      throw new Error(`Failed to get payment key: ${paymentKeyResponse.status}`);
+    }
+    
     const paymentKeyData = await paymentKeyResponse.json();
+    logStep("Payment key response", paymentKeyData);
+    
+    if (!paymentKeyData.token) {
+      throw new Error("No payment token received from Paymob");
+    }
+    
     const paymentKey = paymentKeyData.token;
     logStep("Got payment key");
 
@@ -123,6 +162,7 @@ serve(async (req) => {
 
     if (dbError) {
       logStep("Database error", { error: dbError.message });
+      throw new Error(`Database error: ${dbError.message}`);
     }
 
     // Build iframe URL
