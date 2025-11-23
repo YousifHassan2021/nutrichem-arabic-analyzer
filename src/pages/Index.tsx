@@ -1,15 +1,14 @@
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { Input } from "@/components/ui/input";
 import { Card } from "@/components/ui/card";
-import { Loader2, Beaker, AlertCircle, Upload, X, ScanLine, Crown } from "lucide-react";
+import { Loader2, Beaker, AlertCircle, Upload, X, ScanLine } from "lucide-react";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import AnalysisResults from "@/components/AnalysisResults";
 import { BarcodeScanner } from '@capacitor-mlkit/barcode-scanning';
 import { Capacitor } from '@capacitor/core';
-import { useAuth } from "@/contexts/AuthContext";
 import logo from "@/assets/logo.png";
 
 interface AnalysisResult {
@@ -45,16 +44,7 @@ const Index = () => {
   const [imageFile, setImageFile] = useState<File | null>(null);
   const [imagePreview, setImagePreview] = useState<string | null>(null);
   const [isScanning, setIsScanning] = useState(false);
-  const [subscribeLoading, setSubscribeLoading] = useState(false);
-  const [email, setEmail] = useState("");
   const isNative = Capacitor.isNativePlatform();
-  const { session, subscription, checkSubscription } = useAuth();
-
-  useEffect(() => {
-    if (session) {
-      checkSubscription();
-    }
-  }, [session]);
 
   const handleImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -77,46 +67,7 @@ const Index = () => {
     setImagePreview(null);
   };
 
-  const handleSubscribe = async () => {
-    if (!session) return;
-    
-    if (!email.trim()) {
-      toast.error("يرجى إدخال البريد الإلكتروني");
-      return;
-    }
-
-    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-    if (!emailRegex.test(email)) {
-      toast.error("يرجى إدخال بريد إلكتروني صحيح");
-      return;
-    }
-    
-    setSubscribeLoading(true);
-    try {
-      const { data, error } = await supabase.functions.invoke("create-checkout", {
-        headers: {
-          Authorization: `Bearer ${session.access_token}`,
-        },
-        body: { email },
-      });
-
-      if (error) throw error;
-      
-      if (data?.url) {
-        window.open(data.url, "_blank");
-      }
-    } catch (error: any) {
-      toast.error(error.message || "حدث خطأ أثناء إنشاء جلسة الدفع");
-    } finally {
-      setSubscribeLoading(false);
-    }
-  };
-
   const handleAnalyze = async () => {
-    if (!subscription?.subscribed) {
-      toast.error("يرجى الاشتراك أولاً للحصول على التحليل");
-      return;
-    }
 
     if (!productName.trim() && !imageFile) {
       toast.error("يرجى إدخال اسم المنتج أو رفع صورة");
@@ -229,29 +180,6 @@ const Index = () => {
                 </p>
               </div>
             </div>
-            <div className="flex items-center gap-2">
-              {subscription?.subscribed ? (
-                <div className="flex items-center gap-2 px-3 py-2 bg-primary/10 border border-primary rounded-lg">
-                  <Crown className="h-4 w-4 text-primary" />
-                  <span className="text-sm font-medium text-primary">مشترك</span>
-                </div>
-              ) : (
-                <Button
-                  variant="default"
-                  size="sm"
-                  className="gap-2"
-                  onClick={handleSubscribe}
-                  disabled={subscribeLoading}
-                >
-                  {subscribeLoading ? (
-                    <Loader2 className="h-4 w-4 animate-spin" />
-                  ) : (
-                    <Crown className="h-4 w-4" />
-                  )}
-                  <span className="hidden md:inline">اشترك الآن</span>
-                </Button>
-              )}
-            </div>
           </div>
         </div>
       </header>
@@ -260,62 +188,6 @@ const Index = () => {
       <main className="container mx-auto px-4 py-8 max-w-6xl">
         {!analysisResult ? (
           <div className="space-y-8">
-            {/* Subscription Banner */}
-            {!subscription?.subscribed && (
-              <Card className="p-6 bg-gradient-to-r from-primary/10 to-secondary/10 border-primary/20">
-                <div className="space-y-4">
-                  <div className="flex gap-4">
-                    <Crown className="h-8 w-8 text-primary flex-shrink-0" />
-                    <div className="space-y-2 flex-1">
-                      <h2 className="font-bold text-lg text-foreground">
-                        اشترك للحصول على التحليل الكامل
-                      </h2>
-                      <p className="text-sm text-muted-foreground">
-                        10 ريال فقط لمدة 3 أشهر - تحليل غير محدود للمكونات
-                      </p>
-                      <ul className="space-y-1 text-sm">
-                        <li className="flex items-center gap-2">
-                          <span className="text-primary">✓</span>
-                          <span>تحليل علمي مفصل للمكونات</span>
-                        </li>
-                        <li className="flex items-center gap-2">
-                          <span className="text-primary">✓</span>
-                          <span>تحديد حلال أو حرام</span>
-                        </li>
-                        <li className="flex items-center gap-2">
-                          <span className="text-primary">✓</span>
-                          <span>مسح الباركود وتحميل الصور</span>
-                        </li>
-                      </ul>
-                    </div>
-                  </div>
-                  
-                  <div className="flex flex-col md:flex-row gap-3">
-                    <Input
-                      type="email"
-                      placeholder="أدخل بريدك الإلكتروني"
-                      value={email}
-                      onChange={(e) => setEmail(e.target.value)}
-                      className="flex-1"
-                    />
-                    <Button 
-                      onClick={handleSubscribe}
-                      disabled={subscribeLoading}
-                      size="lg"
-                      className="md:w-auto min-w-[160px]"
-                    >
-                      {subscribeLoading ? (
-                        <Loader2 className="ml-2 h-5 w-5 animate-spin" />
-                      ) : (
-                        <Crown className="ml-2 h-5 w-5" />
-                      )}
-                      اشترك الآن
-                    </Button>
-                  </div>
-                </div>
-              </Card>
-            )}
-
             {/* Info Banner */}
             <Card className="p-6 bg-primary/5 border-primary/20">
               <div className="flex gap-4">

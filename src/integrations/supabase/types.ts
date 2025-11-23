@@ -14,45 +14,7 @@ export type Database = {
   }
   public: {
     Tables: {
-      subscriptions: {
-        Row: {
-          amount_cents: number
-          created_at: string
-          currency: string
-          id: string
-          order_id: string
-          paymob_transaction_id: string | null
-          status: string
-          subscription_end: string | null
-          updated_at: string
-          user_id: string
-        }
-        Insert: {
-          amount_cents: number
-          created_at?: string
-          currency?: string
-          id?: string
-          order_id: string
-          paymob_transaction_id?: string | null
-          status?: string
-          subscription_end?: string | null
-          updated_at?: string
-          user_id: string
-        }
-        Update: {
-          amount_cents?: number
-          created_at?: string
-          currency?: string
-          id?: string
-          order_id?: string
-          paymob_transaction_id?: string | null
-          status?: string
-          subscription_end?: string | null
-          updated_at?: string
-          user_id?: string
-        }
-        Relationships: []
-      }
+      [_ in never]: never
     }
     Views: {
       [_ in never]: never
