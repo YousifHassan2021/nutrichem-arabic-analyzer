@@ -5,7 +5,6 @@ import { useToast } from "@/hooks/use-toast";
 
 interface SubscriptionData {
   subscribed: boolean;
-  product_id: string | null;
   subscription_end: string | null;
 }
 

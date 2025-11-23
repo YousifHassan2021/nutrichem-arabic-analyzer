@@ -1,5 +1,4 @@
 import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
-import Stripe from "https://esm.sh/stripe@18.5.0";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.57.2";
 
 const corsHeaders = {
@@ -37,37 +36,100 @@ serve(async (req) => {
     
     logStep("User authenticated", { userId: user.id, email });
 
-    const stripe = new Stripe(Deno.env.get("STRIPE_SECRET_KEY") || "", { 
-      apiVersion: "2025-08-27.basil" 
-    });
+    const apiKey = Deno.env.get("PAYMOB_API_KEY");
+    const integrationId = Deno.env.get("PAYMOB_INTEGRATION_ID");
+    const iframeId = Deno.env.get("PAYMOB_IFRAME_ID");
     
-    const customers = await stripe.customers.list({ email, limit: 1 });
-    let customerId;
-    if (customers.data.length > 0) {
-      customerId = customers.data[0].id;
-      logStep("Found existing customer", { customerId });
-    } else {
-      logStep("No existing customer found");
+    if (!apiKey || !integrationId || !iframeId) {
+      throw new Error("Paymob credentials not configured");
     }
 
-    const session = await stripe.checkout.sessions.create({
-      customer: customerId,
-      customer_email: customerId ? undefined : email,
-      line_items: [
-        {
-          price: "price_1SWVgs4KrpArtVsL4WKA4d0i",
-          quantity: 1,
-        },
-      ],
-      client_reference_id: user.id,
-      mode: "subscription",
-      success_url: `${req.headers.get("origin")}/subscription-success`,
-      cancel_url: `${req.headers.get("origin")}/`,
+    // Step 1: Get authentication token
+    logStep("Getting Paymob auth token");
+    const authResponse = await fetch("https://accept.paymob.com/api/auth/tokens", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ api_key: apiKey }),
     });
+    const authData = await authResponse.json();
+    const authToken = authData.token;
+    logStep("Got auth token");
 
-    logStep("Checkout session created", { sessionId: session.id });
+    // Step 2: Register order
+    logStep("Registering order");
+    const orderResponse = await fetch("https://accept.paymob.com/api/ecommerce/orders", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        auth_token: authToken,
+        delivery_needed: "false",
+        amount_cents: "1000", // 10 SAR = 1000 halalas
+        currency: "SAR",
+        items: [{
+          name: "اشتراك ربع سنوي",
+          amount_cents: "1000",
+          description: "اشتراك ماعون لمدة 3 أشهر",
+          quantity: "1"
+        }]
+      }),
+    });
+    const orderData = await orderResponse.json();
+    const orderId = orderData.id;
+    logStep("Order registered", { orderId });
 
-    return new Response(JSON.stringify({ url: session.url }), {
+    // Step 3: Get payment key
+    logStep("Getting payment key");
+    const paymentKeyResponse = await fetch("https://accept.paymob.com/api/acceptance/payment_keys", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        auth_token: authToken,
+        amount_cents: "1000",
+        expiration: 3600,
+        order_id: orderId,
+        billing_data: {
+          apartment: "NA",
+          email: email,
+          floor: "NA",
+          first_name: user.email?.split('@')[0] || "User",
+          street: "NA",
+          building: "NA",
+          phone_number: "NA",
+          shipping_method: "NA",
+          postal_code: "NA",
+          city: "NA",
+          country: "SA",
+          last_name: "User",
+          state: "NA"
+        },
+        currency: "SAR",
+        integration_id: parseInt(integrationId),
+      }),
+    });
+    const paymentKeyData = await paymentKeyResponse.json();
+    const paymentKey = paymentKeyData.token;
+    logStep("Got payment key");
+
+    // Create subscription record in database
+    const { error: dbError } = await supabaseClient
+      .from('subscriptions')
+      .insert({
+        user_id: user.id,
+        order_id: orderId.toString(),
+        amount_cents: 1000,
+        currency: 'SAR',
+        status: 'pending'
+      });
+
+    if (dbError) {
+      logStep("Database error", { error: dbError.message });
+    }
+
+    // Build iframe URL
+    const iframeUrl = `https://accept.paymob.com/api/acceptance/iframes/${iframeId}?payment_token=${paymentKey}`;
+    logStep("Checkout URL created", { url: iframeUrl });
+
+    return new Response(JSON.stringify({ url: iframeUrl }), {
       headers: { ...corsHeaders, "Content-Type": "application/json" },
       status: 200,
     });
