@@ -10,6 +10,7 @@ import AnalysisResults from "@/components/AnalysisResults";
 import { BarcodeScanner } from '@capacitor-mlkit/barcode-scanning';
 import { Capacitor } from '@capacitor/core';
 import { useAuth } from "@/contexts/AuthContext";
+import logo from "@/assets/logo.png";
 
 interface AnalysisResult {
   productName: string;
@@ -218,15 +219,13 @@ const Index = () => {
         <div className="container mx-auto px-4 py-6">
           <div className="flex items-center justify-between gap-3">
             <div className="flex items-center gap-3">
-              <div className="bg-primary/10 p-3 rounded-xl">
-                <Beaker className="h-8 w-8 text-primary" />
-              </div>
+              <img src={logo} alt="ماعون" className="h-16 w-16 md:h-20 md:w-20" />
               <div>
                 <h1 className="text-xl md:text-3xl font-bold text-foreground">
-                  المجلس العلمي للكيمياء الغذائية
+                  ماعون
                 </h1>
                 <p className="text-xs md:text-sm text-muted-foreground">
-                  NutriChem-V4.0 Scientific Directorate
+                  فحص دقيق لمكونات المنتجات استنادا إلى أدلة علمية
                 </p>
               </div>
             </div>
