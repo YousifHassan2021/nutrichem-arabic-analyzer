@@ -45,6 +45,7 @@ const Index = () => {
   const [imagePreview, setImagePreview] = useState<string | null>(null);
   const [isScanning, setIsScanning] = useState(false);
   const [subscribeLoading, setSubscribeLoading] = useState(false);
+  const [email, setEmail] = useState("");
   const isNative = Capacitor.isNativePlatform();
   const { session, subscription, checkSubscription } = useAuth();
 
@@ -78,12 +79,24 @@ const Index = () => {
   const handleSubscribe = async () => {
     if (!session) return;
     
+    if (!email.trim()) {
+      toast.error("يرجى إدخال البريد الإلكتروني");
+      return;
+    }
+
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailRegex.test(email)) {
+      toast.error("يرجى إدخال بريد إلكتروني صحيح");
+      return;
+    }
+    
     setSubscribeLoading(true);
     try {
       const { data, error } = await supabase.functions.invoke("create-checkout", {
         headers: {
           Authorization: `Bearer ${session.access_token}`,
         },
+        body: { email },
       });
 
       if (error) throw error;
@@ -251,10 +264,10 @@ const Index = () => {
             {/* Subscription Banner */}
             {!subscription?.subscribed && (
               <Card className="p-6 bg-gradient-to-r from-primary/10 to-secondary/10 border-primary/20">
-                <div className="flex flex-col md:flex-row items-center justify-between gap-4">
-                  <div className="flex gap-4 flex-1">
+                <div className="space-y-4">
+                  <div className="flex gap-4">
                     <Crown className="h-8 w-8 text-primary flex-shrink-0" />
-                    <div className="space-y-2">
+                    <div className="space-y-2 flex-1">
                       <h2 className="font-bold text-lg text-foreground">
                         اشترك للحصول على التحليل الكامل
                       </h2>
@@ -277,19 +290,29 @@ const Index = () => {
                       </ul>
                     </div>
                   </div>
-                  <Button 
-                    onClick={handleSubscribe}
-                    disabled={subscribeLoading}
-                    size="lg"
-                    className="w-full md:w-auto min-w-[160px]"
-                  >
-                    {subscribeLoading ? (
-                      <Loader2 className="ml-2 h-5 w-5 animate-spin" />
-                    ) : (
-                      <Crown className="ml-2 h-5 w-5" />
-                    )}
-                    اشترك الآن
-                  </Button>
+                  
+                  <div className="flex flex-col md:flex-row gap-3">
+                    <Input
+                      type="email"
+                      placeholder="أدخل بريدك الإلكتروني"
+                      value={email}
+                      onChange={(e) => setEmail(e.target.value)}
+                      className="flex-1"
+                    />
+                    <Button 
+                      onClick={handleSubscribe}
+                      disabled={subscribeLoading}
+                      size="lg"
+                      className="md:w-auto min-w-[160px]"
+                    >
+                      {subscribeLoading ? (
+                        <Loader2 className="ml-2 h-5 w-5 animate-spin" />
+                      ) : (
+                        <Crown className="ml-2 h-5 w-5" />
+                      )}
+                      اشترك الآن
+                    </Button>
+                  </div>
                 </div>
               </Card>
             )}
