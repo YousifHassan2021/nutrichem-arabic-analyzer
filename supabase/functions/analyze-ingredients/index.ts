@@ -11,7 +11,7 @@ serve(async (req) => {
   }
 
   try {
-    const { ingredients, productName, image } = await req.json();
+    const { ingredients, productName, image, productType = "food" } = await req.json();
     const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
 
     if (!LOVABLE_API_KEY) {
@@ -19,9 +19,11 @@ serve(async (req) => {
     }
 
     console.log("Analyzing ingredients for product:", productName);
+    console.log("Product type:", productType);
     console.log("Has image:", !!image);
 
-    const systemPrompt = `أنت "المجلس العلمي للكيمياء الغذائية (NutriChem-V4.0 Scientific Directorate)". أنت نظام تحليلي خبير مهمتك فحص مكونات المنتجات الغذائية وتقديم تحليل علمي شامل باللغة العربية.
+    const systemPrompts = {
+      food: `أنت "المجلس العلمي للكيمياء الغذائية (NutriChem-V4.0 Scientific Directorate)". أنت نظام تحليلي خبير مهمتك فحص مكونات المنتجات الغذائية وتقديم تحليل علمي شامل باللغة العربية.
 
 المبادئ الأساسية:
 1. الدليل أولاً: استند إلى أدلة علمية من هيئات معترف بها (FDA, EFSA, etc.)
@@ -30,7 +32,34 @@ serve(async (req) => {
 4. تحليل دقيق: صنف كل مكون إلى: سلبي، إيجابي، أو مشكوك فيه
 5. تحليل الحلال والحرام: **يجب** الكشف عن المكونات المحرمة (لحم الخنزير أو منتجات الخنزير، الكحول أو المشروبات الكحولية) وتحديد حالة المنتج
 
-يجب أن تحلل المكونات وتصنفها بدقة مع تقديم تفسير علمي لكل تصنيف.`;
+يجب أن تحلل المكونات وتصنفها بدقة مع تقديم تفسير علمي لكل تصنيف.`,
+      
+      cosmetic: `أنت "المجلس العلمي لكيمياء المستحضرات التجميلية (CosmeticChem-V1.0 Scientific Directorate)". أنت نظام تحليلي خبير مهمتك فحص مكونات المستحضرات التجميلية ومنتجات العناية الشخصية وتقديم تحليل علمي شامل باللغة العربية.
+
+المبادئ الأساسية:
+1. الدليل أولاً: استند إلى أدلة علمية من هيئات معترف بها (FDA, EWG, EU Cosmetics Regulation, etc.)
+2. تقييم الأمان الجلدي: ركز على المكونات التي قد تسبب تهيج، حساسية، أو مشاكل جلدية
+3. كشف المواد المثيرة للقلق:
+   - Parabens (مواد حافظة مثيرة للجدل)
+   - Phthalates (ملدنات محتملة الخطر)
+   - Sulfates (منظفات قاسية مثل SLS, SLES)
+   - Formaldehyde و مطلقات الفورمالدهايد
+   - Siloxanes (D4, D5, D6)
+   - Synthetic fragrances و مكونات عطرية مبهمة
+   - Mineral oil و Petrolatum (في بعض الحالات)
+   - مكونات مشتقة من حيوانات
+4. تحليل دقيق: صنف كل مكون إلى: سلبي، إيجابي، أو مشكوك فيه
+5. تقييم الحلال والحرام: ركز على:
+   - مشتقات الخنزير (Porcine derivatives, Pork collagen, etc.)
+   - الكحول الإيثيلي (Ethanol, Ethyl Alcohol) في التركيبات
+   - مكونات حيوانية غير حلال (Carmine, Cochineal, غير مذبوحة حسب الشريعة)
+6. المكونات الطبيعية مقابل الصناعية: وضح ما هو طبيعي وما هو صناعي
+7. ملاءمة نوع البشرة: إذا أمكن، حدد مدى ملاءمة المنتج لأنواع البشرة المختلفة
+
+يجب أن تحلل المكونات التجميلية وتصنفها بدقة مع تقديم تفسير علمي يركز على السلامة الجلدية والصحة العامة.`
+    };
+
+    const systemPrompt = systemPrompts[productType as keyof typeof systemPrompts] || systemPrompts.food;
 
     // If image is provided, use vision to extract ingredients first
     let ingredientsText = ingredients;

@@ -39,6 +39,7 @@ interface AnalysisResult {
 const Index = () => {
   const [productName, setProductName] = useState("");
   const [ingredients, setIngredients] = useState("");
+  const [productType, setProductType] = useState<"food" | "cosmetic">("food");
   const [isAnalyzing, setIsAnalyzing] = useState(false);
   const [analysisResult, setAnalysisResult] = useState<AnalysisResult | null>(null);
   const [imageFile, setImageFile] = useState<File | null>(null);
@@ -83,7 +84,7 @@ const Index = () => {
     setAnalysisResult(null);
 
     try {
-      const body: any = { productName };
+      const body: any = { productName, productType };
       
       if (imageFile) {
         const reader = new FileReader();
@@ -115,6 +116,7 @@ const Index = () => {
   const handleReset = () => {
     setProductName("");
     setIngredients("");
+    setProductType("food");
     setAnalysisResult(null);
     setImageFile(null);
     setImagePreview(null);
@@ -197,9 +199,9 @@ const Index = () => {
                     نظام تحليل علمي شامل
                   </h2>
                   <p className="text-sm text-muted-foreground leading-relaxed">
-                    نقوم بفحص دقيق لمكونات المنتجات استناداً إلى أدلة علمية من هيئات معترف
-                    بها مثل FDA و EFSA. نكشف الأنماط المضللة ونقدم تحليلاً تحوطياً لحماية
-                    صحتك.
+                    نقوم بفحص دقيق لمكونات المنتجات الغذائية والتجميلية استناداً إلى أدلة علمية من هيئات معترف
+                    بها مثل FDA و EFSA و EWG. نكشف الأنماط المضللة والمكونات الضارة ونقدم تحليلاً تحوطياً لحماية
+                    صحتك وبشرتك.
                   </p>
                 </div>
               </div>
@@ -208,6 +210,31 @@ const Index = () => {
             {/* Input Form */}
             <Card className="p-6 md:p-8">
               <div className="space-y-6">
+                {/* Product Type Selection */}
+                <div className="space-y-2">
+                  <label className="text-sm font-medium text-foreground">
+                    نوع المنتج
+                  </label>
+                  <div className="flex gap-3">
+                    <Button
+                      type="button"
+                      variant={productType === "food" ? "default" : "outline"}
+                      onClick={() => setProductType("food")}
+                      className="flex-1"
+                    >
+                      منتج غذائي
+                    </Button>
+                    <Button
+                      type="button"
+                      variant={productType === "cosmetic" ? "default" : "outline"}
+                      onClick={() => setProductType("cosmetic")}
+                      className="flex-1"
+                    >
+                      منتج تجميلي
+                    </Button>
+                  </div>
+                </div>
+
                 <div className="space-y-2">
                   <label className="text-sm font-medium text-foreground">
                     اسم المنتج
