@@ -176,6 +176,18 @@ const Index = () => {
 
   return (
     <div className="min-h-screen bg-background" dir="rtl">
+      {/* Floating Subscription Button */}
+      {!subscribed && (
+        <Button
+          onClick={() => navigate("/pricing")}
+          className="fixed bottom-6 left-6 z-50 gap-2 shadow-lg hover:shadow-xl transition-shadow animate-pulse"
+          size="lg"
+        >
+          <Crown className="h-5 w-5" />
+          اشترك الآن
+        </Button>
+      )}
+
       {/* Header */}
       <header className="border-b border-border bg-card/50 backdrop-blur-sm sticky top-0 z-10">
         <div className="container mx-auto px-4 py-6">
