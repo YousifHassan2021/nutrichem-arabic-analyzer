@@ -2,78 +2,145 @@ import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { CheckCircle, ArrowRight, Loader2 } from "lucide-react";
+import { CheckCircle, Loader2, Crown } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
+import { supabase } from "@/integrations/supabase/client";
+import { toast } from "sonner";
 import logo from "@/assets/logo.png";
 
 const SubscriptionSuccess = () => {
   const navigate = useNavigate();
-  const { checkSubscription, subscribed, checkingSubscription } = useAuth();
+  const { subscribed, checkSubscription, checkingSubscription, user } = useAuth();
   const [attempts, setAttempts] = useState(0);
-  const maxAttempts = 10;
+  const [isActivating, setIsActivating] = useState(false);
 
   useEffect(() => {
-    // استدعاء فوري
-    checkSubscription();
+    const activateSubscription = async () => {
+      const pendingEmail = localStorage.getItem("pendingSubscriptionEmail");
+      
+      if (pendingEmail && !user) {
+        setIsActivating(true);
+        try {
+          // إنشاء حساب تلقائي بكلمة مرور عشوائية
+          const randomPassword = Math.random().toString(36).slice(-12) + Math.random().toString(36).slice(-12);
+          
+          const { data, error } = await supabase.auth.signUp({
+            email: pendingEmail,
+            password: randomPassword,
+            options: {
+              emailRedirectTo: `${window.location.origin}/`,
+              data: {
+                auto_created: true
+              }
+            }
+          });
 
-    // تكرار الفحص كل ثانية حتى يتم التفعيل أو نصل للحد الأقصى
-    const interval = setInterval(() => {
-      if (!subscribed && attempts < maxAttempts) {
-        checkSubscription();
-        setAttempts(prev => prev + 1);
-      } else {
-        clearInterval(interval);
+          if (error && error.message.includes("already registered")) {
+            // إذا كان الحساب موجود، نسجل الدخول
+            const { error: signInError } = await supabase.auth.signInWithPassword({
+              email: pendingEmail,
+              password: randomPassword
+            });
+
+            if (signInError) {
+              toast.error("حدث خطأ في تفعيل الاشتراك. يرجى تسجيل الدخول يدوياً.");
+            }
+          } else if (error) {
+            console.error("Signup error:", error);
+            toast.error("حدث خطأ في إنشاء الحساب");
+          } else {
+            toast.success("تم تفعيل اشتراكك بنجاح!");
+          }
+
+          localStorage.removeItem("pendingSubscriptionEmail");
+        } catch (error) {
+          console.error("Activation error:", error);
+        } finally {
+          setIsActivating(false);
+        }
       }
-    }, 1000);
+    };
 
-    return () => clearInterval(interval);
-  }, [subscribed, attempts]);
+    activateSubscription();
+  }, [user]);
+
+  useEffect(() => {
+    if (user) {
+      checkSubscription();
+      
+      const interval = setInterval(() => {
+        if (!subscribed && attempts < 30) {
+          checkSubscription();
+          setAttempts(prev => prev + 1);
+        }
+      }, 1000);
+
+      return () => clearInterval(interval);
+    }
+  }, [subscribed, attempts, checkSubscription, user]);
 
   return (
-    <div className="min-h-screen bg-background flex items-center justify-center p-4" dir="rtl">
-      <Card className="max-w-md w-full p-8 text-center">
-        <div className="mb-6">
-          <img src={logo} alt="ماعون" className="h-20 w-20 mx-auto mb-4" />
-          
-          {checkingSubscription || (!subscribed && attempts < maxAttempts) ? (
-            <>
-              <Loader2 className="h-16 w-16 text-accent mx-auto mb-4 animate-spin" />
-              <h1 className="text-2xl font-bold mb-2">جارٍ تفعيل الاشتراك...</h1>
-              <p className="text-muted-foreground">
-                نقوم بتفعيل اشتراكك، يرجى الانتظار لحظات.
-              </p>
-            </>
-          ) : (
-            <>
-              <CheckCircle className="h-16 w-16 text-accent mx-auto mb-4" />
-              <h1 className="text-2xl font-bold mb-2">تم الاشتراك بنجاح!</h1>
-              <p className="text-muted-foreground">
-                شكراً لاشتراكك في ماعون. يمكنك الآن الاستفادة من جميع ميزات التحليل.
-              </p>
-            </>
-          )}
+    <div className="min-h-screen bg-background" dir="rtl">
+      <header className="border-b border-border bg-card/50 backdrop-blur-sm">
+        <div className="container mx-auto px-4 py-6">
+          <div className="flex items-center justify-center gap-3">
+            <img src={logo} alt="ماعون" className="h-16 w-16" />
+            <h1 className="text-2xl font-bold">ماعون</h1>
+          </div>
         </div>
+      </header>
 
-        <div className="space-y-3">
-          <Button 
-            onClick={() => navigate("/")} 
-            className="w-full gap-2" 
-            size="lg"
-            disabled={checkingSubscription || (!subscribed && attempts < maxAttempts)}
-          >
-            <ArrowRight className="h-5 w-5" />
-            ابدأ التحليل الآن
-          </Button>
-          <Button
-            onClick={() => navigate("/pricing")}
-            variant="outline"
-            className="w-full"
-            disabled={checkingSubscription || (!subscribed && attempts < maxAttempts)}
-          >
-            عرض تفاصيل الاشتراك
-          </Button>
-        </div>
-      </Card>
+      <main className="container mx-auto px-4 py-12 max-w-md">
+        <Card className="p-8">
+          <div className="text-center space-y-6">
+            {isActivating ? (
+              <>
+                <Loader2 className="h-16 w-16 text-accent mx-auto animate-spin" />
+                <h2 className="text-2xl font-bold">جاري تفعيل اشتراكك...</h2>
+                <p className="text-muted-foreground">
+                  يرجى الانتظار بينما نقوم بإعداد حسابك
+                </p>
+              </>
+            ) : subscribed ? (
+              <>
+                <CheckCircle className="h-16 w-16 text-accent mx-auto" />
+                <h2 className="text-2xl font-bold">تم تفعيل اشتراكك بنجاح!</h2>
+                <p className="text-muted-foreground">
+                  يمكنك الآن البدء في استخدام جميع ميزات التطبيق
+                </p>
+              </>
+            ) : (
+              <>
+                <Loader2 className="h-16 w-16 text-accent mx-auto animate-spin" />
+                <h2 className="text-2xl font-bold">جاري التحقق من الاشتراك...</h2>
+                <p className="text-muted-foreground">
+                  يرجى الانتظار بينما نقوم بتفعيل اشتراكك
+                </p>
+              </>
+            )}
+          </div>
+
+          <div className="flex flex-col gap-3 mt-8">
+            <Button
+              onClick={() => navigate("/")}
+              disabled={!subscribed || checkingSubscription || isActivating}
+              className="gap-2"
+              size="lg"
+            >
+              <Crown className="h-5 w-5" />
+              ابدأ التحليل
+            </Button>
+            <Button
+              onClick={() => navigate("/pricing")}
+              disabled={!subscribed || checkingSubscription || isActivating}
+              variant="outline"
+              size="lg"
+            >
+              عرض تفاصيل الاشتراك
+            </Button>
+          </div>
+        </Card>
+      </main>
     </div>
   );
 };

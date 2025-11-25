@@ -14,11 +14,30 @@ const Pricing = () => {
   const navigate = useNavigate();
   const [isLoading, setIsLoading] = useState(false);
   const [isManaging, setIsManaging] = useState(false);
+  const [email, setEmail] = useState("");
+  const [showEmailInput, setShowEmailInput] = useState(false);
 
   const handleSubscribe = async () => {
+    if (!email.trim()) {
+      setShowEmailInput(true);
+      toast.error("يرجى إدخال بريدك الإلكتروني");
+      return;
+    }
+
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailRegex.test(email)) {
+      toast.error("يرجى إدخال بريد إلكتروني صحيح");
+      return;
+    }
+
     setIsLoading(true);
     try {
-      const { data, error } = await supabase.functions.invoke("create-checkout");
+      // حفظ الإيميل في localStorage قبل الدفع
+      localStorage.setItem("pendingSubscriptionEmail", email);
+
+      const { data, error } = await supabase.functions.invoke("create-checkout", {
+        body: { email }
+      });
       
       if (error) {
         console.error("Checkout error:", error);
@@ -33,6 +52,7 @@ const Pricing = () => {
     } catch (error) {
       console.error("Error creating checkout:", error);
       toast.error("حدث خطأ أثناء إنشاء جلسة الدفع: " + (error as Error).message);
+      localStorage.removeItem("pendingSubscriptionEmail");
     } finally {
       setIsLoading(false);
     }
@@ -265,24 +285,36 @@ const Pricing = () => {
                 )}
               </Button>
             ) : (
-              <Button
-                onClick={handleSubscribe}
-                disabled={isLoading}
-                className="w-full"
-                size="lg"
-              >
-                {isLoading ? (
-                  <>
-                    <Loader2 className="ml-2 h-5 w-5 animate-spin" />
-                    جاري التحميل...
-                  </>
-                ) : (
-                  <>
-                    <Crown className="ml-2 h-5 w-5" />
-                    اشترك الآن
-                  </>
-                )}
-              </Button>
+              <div className="space-y-4">
+                {showEmailInput || !user ? (
+                  <Input
+                    type="email"
+                    placeholder="أدخل بريدك الإلكتروني"
+                    value={email}
+                    onChange={(e) => setEmail(e.target.value)}
+                    className="text-center"
+                    dir="ltr"
+                  />
+                ) : null}
+                <Button
+                  onClick={handleSubscribe}
+                  disabled={isLoading}
+                  className="w-full"
+                  size="lg"
+                >
+                  {isLoading ? (
+                    <>
+                      <Loader2 className="ml-2 h-5 w-5 animate-spin" />
+                      جاري التحميل...
+                    </>
+                  ) : (
+                    <>
+                      <Crown className="ml-2 h-5 w-5" />
+                      اشترك الآن
+                    </>
+                  )}
+                </Button>
+              </div>
             )}
           </Card>
         </div>
