@@ -39,32 +39,78 @@ serve(async (req) => {
     
     logStep("User authenticated", { userId: user.id, email: user.email });
 
-    // First, check for manual subscription
-    const { data: manualSub, error: manualSubError } = await supabaseClient
-      .from('manual_subscriptions')
-      .select('*')
-      .eq('user_id', user.id)
-      .eq('status', 'active')
-      .single();
+    // First, check for manual subscription by user_id if user exists
+    if (user.id) {
+      const { data: manualSub, error: manualSubError } = await supabaseClient
+        .from('manual_subscriptions')
+        .select('*')
+        .eq('user_id', user.id)
+        .eq('status', 'active')
+        .single();
 
-    if (!manualSubError && manualSub) {
-      const expiresAt = new Date(manualSub.expires_at);
-      const now = new Date();
-      
-      if (expiresAt > now) {
-        logStep("Active manual subscription found", { 
-          subscriptionId: manualSub.id, 
-          expiresAt: manualSub.expires_at 
-        });
+      if (!manualSubError && manualSub) {
+        const expiresAt = new Date(manualSub.expires_at);
+        const now = new Date();
         
-        return new Response(JSON.stringify({
-          subscribed: true,
-          product_id: 'manual_subscription',
-          subscription_end: manualSub.expires_at
-        }), {
-          headers: { ...corsHeaders, "Content-Type": "application/json" },
-          status: 200,
-        });
+        if (expiresAt > now) {
+          logStep("Active manual subscription found by user_id", { 
+            subscriptionId: manualSub.id, 
+            expiresAt: manualSub.expires_at 
+          });
+          
+          return new Response(JSON.stringify({
+            subscribed: true,
+            product_id: 'manual_subscription',
+            subscription_end: manualSub.expires_at
+          }), {
+            headers: { ...corsHeaders, "Content-Type": "application/json" },
+            status: 200,
+          });
+        }
+      }
+    }
+
+    // Also check by email (for subscriptions created before user registration)
+    if (user.email) {
+      const { data: manualSubByEmail, error: manualSubByEmailError } = await supabaseClient
+        .from('manual_subscriptions')
+        .select('*')
+        .eq('user_email', user.email.toLowerCase())
+        .eq('status', 'active')
+        .single();
+
+      if (!manualSubByEmailError && manualSubByEmail) {
+        const expiresAt = new Date(manualSubByEmail.expires_at);
+        const now = new Date();
+        
+        if (expiresAt > now) {
+          // Link subscription to user if not already linked
+          if (!manualSubByEmail.user_id && user.id) {
+            await supabaseClient
+              .from('manual_subscriptions')
+              .update({ user_id: user.id })
+              .eq('id', manualSubByEmail.id);
+            
+            logStep("Linked subscription to registered user", { 
+              subscriptionId: manualSubByEmail.id,
+              userId: user.id
+            });
+          }
+
+          logStep("Active manual subscription found by email", { 
+            subscriptionId: manualSubByEmail.id, 
+            expiresAt: manualSubByEmail.expires_at 
+          });
+          
+          return new Response(JSON.stringify({
+            subscribed: true,
+            product_id: 'manual_subscription',
+            subscription_end: manualSubByEmail.expires_at
+          }), {
+            headers: { ...corsHeaders, "Content-Type": "application/json" },
+            status: 200,
+          });
+        }
       }
     }
 

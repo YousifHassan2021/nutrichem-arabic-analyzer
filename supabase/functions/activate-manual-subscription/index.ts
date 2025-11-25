@@ -55,27 +55,53 @@ serve(async (req) => {
       throw new Error("User email and duration are required");
     }
 
+    // Validate email format
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailRegex.test(userEmail)) {
+      throw new Error("Invalid email format");
+    }
+
     logStep("Activating subscription", { userEmail, durationMonths });
 
-    // Find user by email
-    const { data: targetUser, error: userFindError } = await supabaseClient.auth.admin.listUsers();
-    if (userFindError) throw new Error("Error finding users");
-    
-    const foundUser = targetUser.users.find(u => u.email === userEmail);
-    if (!foundUser) throw new Error("User not found with this email");
-
-    logStep("Target user found", { userId: foundUser.id });
+    // Try to find user by email (optional - user might not be registered yet)
+    let userId = null;
+    try {
+      const { data: allUsers, error: userFindError } = await supabaseClient.auth.admin.listUsers();
+      if (!userFindError && allUsers) {
+        const foundUser = allUsers.users.find(u => u.email?.toLowerCase() === userEmail.toLowerCase());
+        if (foundUser) {
+          userId = foundUser.id;
+          logStep("User found in system", { userId });
+        } else {
+          logStep("User not yet registered, creating subscription for future activation");
+        }
+      }
+    } catch (error) {
+      logStep("Error finding user (will proceed anyway)", { error });
+    }
 
     // Calculate expiration date
     const expiresAt = new Date();
     expiresAt.setMonth(expiresAt.getMonth() + parseInt(durationMonths));
 
+    // Check if there's already an active subscription for this email
+    const { data: existingSub } = await supabaseClient
+      .from('manual_subscriptions')
+      .select('id, expires_at')
+      .eq('user_email', userEmail)
+      .eq('status', 'active')
+      .single();
+
+    if (existingSub) {
+      throw new Error("هذا الإيميل لديه اشتراك نشط بالفعل. استخدم خيار التمديد بدلاً من ذلك.");
+    }
+
     // Insert manual subscription
     const { data: subscription, error: subError } = await supabaseClient
       .from('manual_subscriptions')
       .insert({
-        user_id: foundUser.id,
-        user_email: userEmail,
+        user_id: userId,
+        user_email: userEmail.toLowerCase(),
         activated_by: adminUser.id,
         expires_at: expiresAt.toISOString(),
         status: 'active',
@@ -86,11 +112,14 @@ serve(async (req) => {
 
     if (subError) throw new Error(`Error creating subscription: ${subError.message}`);
 
-    logStep("Subscription activated", { subscriptionId: subscription.id });
+    logStep("Subscription activated", { subscriptionId: subscription.id, hasUserId: !!userId });
 
     return new Response(JSON.stringify({ 
       success: true,
-      subscription
+      subscription,
+      message: userId 
+        ? "تم تفعيل الاشتراك بنجاح"
+        : "تم إنشاء الاشتراك. سيتم تفعيله تلقائياً عندما يسجل المستخدم بهذا الإيميل"
     }), {
       headers: { ...corsHeaders, "Content-Type": "application/json" },
       status: 200,
