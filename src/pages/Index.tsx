@@ -3,13 +3,15 @@ import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { Input } from "@/components/ui/input";
 import { Card } from "@/components/ui/card";
-import { Loader2, Beaker, AlertCircle, Upload, X, ScanLine } from "lucide-react";
+import { Loader2, Beaker, AlertCircle, Upload, X, ScanLine, Crown } from "lucide-react";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import AnalysisResults from "@/components/AnalysisResults";
 import { BarcodeScanner } from '@capacitor-mlkit/barcode-scanning';
 import { Capacitor } from '@capacitor/core';
 import logo from "@/assets/logo.png";
+import { useAuth } from "@/contexts/AuthContext";
+import { useNavigate } from "react-router-dom";
 
 interface AnalysisResult {
   productName: string;
@@ -37,6 +39,8 @@ interface AnalysisResult {
 }
 
 const Index = () => {
+  const { subscribed, user } = useAuth();
+  const navigate = useNavigate();
   const [productName, setProductName] = useState("");
   const [ingredients, setIngredients] = useState("");
   const [productType, setProductType] = useState<"food" | "cosmetic">("food");
@@ -69,6 +73,11 @@ const Index = () => {
   };
 
   const handleAnalyze = async () => {
+    if (!subscribed) {
+      toast.error("يجب الاشتراك أولاً للوصول إلى خدمة التحليل");
+      navigate("/pricing");
+      return;
+    }
 
     if (!productName.trim() && !imageFile) {
       toast.error("يرجى إدخال اسم المنتج أو رفع صورة");
@@ -190,6 +199,27 @@ const Index = () => {
       <main className="container mx-auto px-4 py-8 max-w-6xl">
         {!analysisResult ? (
           <div className="space-y-8">
+            {/* Subscription Banner */}
+            {!subscribed && user && (
+              <Card className="p-6 bg-accent/10 border-accent">
+                <div className="flex gap-4 items-center">
+                  <Crown className="h-8 w-8 text-accent flex-shrink-0" />
+                  <div className="flex-1">
+                    <h2 className="font-semibold text-foreground mb-2">
+                      اشترك للوصول إلى خدمة التحليل
+                    </h2>
+                    <p className="text-sm text-muted-foreground mb-3">
+                      احصل على تحليل شامل ودقيق لمكونات المنتجات الغذائية والتجميلية
+                    </p>
+                    <Button onClick={() => navigate("/pricing")} className="gap-2">
+                      <Crown className="h-4 w-4" />
+                      عرض خطط الاشتراك
+                    </Button>
+                  </div>
+                </div>
+              </Card>
+            )}
+
             {/* Info Banner */}
             <Card className="p-6 bg-primary/5 border-primary/20">
               <div className="flex gap-4">
@@ -336,7 +366,7 @@ const Index = () => {
 
                 <Button
                   onClick={handleAnalyze}
-                  disabled={isAnalyzing}
+                  disabled={isAnalyzing || !subscribed}
                   className="w-full"
                   size="lg"
                 >
@@ -344,6 +374,11 @@ const Index = () => {
                     <>
                       <Loader2 className="ml-2 h-5 w-5 animate-spin" />
                       جاري التحليل...
+                    </>
+                  ) : !subscribed ? (
+                    <>
+                      <Crown className="ml-2 h-5 w-5" />
+                      يجب الاشتراك للتحليل
                     </>
                   ) : (
                     <>
