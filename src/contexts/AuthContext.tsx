@@ -10,6 +10,7 @@ interface AuthContextType {
   subscribed: boolean;
   subscriptionEnd: string | null;
   productId: string | null;
+  subscriberName: string | null;
   checkingSubscription: boolean;
   signUp: (email: string, password: string) => Promise<{ error: any }>;
   signIn: (email: string, password: string) => Promise<{ error: any }>;
@@ -26,6 +27,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [subscribed, setSubscribed] = useState(false);
   const [subscriptionEnd, setSubscriptionEnd] = useState<string | null>(null);
   const [productId, setProductId] = useState<string | null>(null);
+  const [subscriberName, setSubscriberName] = useState<string | null>(null);
   const [checkingSubscription, setCheckingSubscription] = useState(false);
   const { toast } = useToast();
 
@@ -48,6 +50,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         setSubscribed(data?.subscribed || false);
         setSubscriptionEnd(data?.subscription_end || null);
         setProductId(data?.product_id || null);
+        setSubscriberName(data?.subscriber_name || null);
       }
     } catch (error) {
       console.error("Error checking subscription:", error);
@@ -164,6 +167,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         subscribed,
         subscriptionEnd,
         productId,
+        subscriberName,
         checkingSubscription,
         signUp,
         signIn,
