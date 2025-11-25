@@ -25,18 +25,27 @@ const Pricing = () => {
 
     setIsLoading(true);
     try {
+      console.log("Creating checkout with name:", newSubscriberName);
       const { data, error } = await supabase.functions.invoke("create-checkout", {
         body: { name: newSubscriberName }
       });
       
-      if (error) throw error;
+      console.log("Checkout response:", { data, error });
+      
+      if (error) {
+        console.error("Checkout error:", error);
+        throw error;
+      }
       
       if (data?.url) {
+        console.log("Redirecting to:", data.url);
         window.location.href = data.url;
+      } else {
+        throw new Error("لم يتم استلام رابط الدفع");
       }
     } catch (error) {
       console.error("Error creating checkout:", error);
-      toast.error("حدث خطأ أثناء إنشاء جلسة الدفع");
+      toast.error("حدث خطأ أثناء إنشاء جلسة الدفع: " + (error as Error).message);
     } finally {
       setIsLoading(false);
     }
