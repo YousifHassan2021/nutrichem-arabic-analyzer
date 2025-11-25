@@ -1,9 +1,9 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { Input } from "@/components/ui/input";
 import { Card } from "@/components/ui/card";
-import { Loader2, Beaker, AlertCircle, Upload, X, ScanLine, Crown } from "lucide-react";
+import { Loader2, Beaker, AlertCircle, Upload, X, ScanLine, Crown, Shield } from "lucide-react";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import AnalysisResults from "@/components/AnalysisResults";
@@ -49,7 +49,32 @@ const Index = () => {
   const [imageFile, setImageFile] = useState<File | null>(null);
   const [imagePreview, setImagePreview] = useState<string | null>(null);
   const [isScanning, setIsScanning] = useState(false);
+  const [isAdmin, setIsAdmin] = useState(false);
   const isNative = Capacitor.isNativePlatform();
+
+  useEffect(() => {
+    const checkAdminStatus = async () => {
+      if (!user) {
+        setIsAdmin(false);
+        return;
+      }
+
+      try {
+        const { data, error } = await supabase
+          .from('user_roles')
+          .select('role')
+          .eq('user_id', user.id)
+          .eq('role', 'admin')
+          .single();
+
+        setIsAdmin(!!data && !error);
+      } catch (error) {
+        setIsAdmin(false);
+      }
+    };
+
+    checkAdminStatus();
+  }, [user]);
 
   const handleImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -203,14 +228,26 @@ const Index = () => {
                 </p>
               </div>
             </div>
-            {user?.email && subscribed && (
-              <div className="hidden md:flex items-center gap-2 px-4 py-2 bg-accent/10 border border-accent/20 rounded-lg">
-                <Crown className="h-4 w-4 text-accent" />
-                <span className="text-sm font-medium text-foreground">
-                  {user.email}
-                </span>
-              </div>
-            )}
+            <div className="flex items-center gap-3">
+              {isAdmin && (
+                <Button 
+                  variant="outline" 
+                  onClick={() => navigate("/admin")}
+                  className="gap-2"
+                >
+                  <Shield className="h-4 w-4" />
+                  <span className="hidden md:inline">لوحة الأدمن</span>
+                </Button>
+              )}
+              {user?.email && subscribed && (
+                <div className="hidden md:flex items-center gap-2 px-4 py-2 bg-accent/10 border border-accent/20 rounded-lg">
+                  <Crown className="h-4 w-4 text-accent" />
+                  <span className="text-sm font-medium text-foreground">
+                    {user.email}
+                  </span>
+                </div>
+              )}
+            </div>
           </div>
         </div>
       </header>
