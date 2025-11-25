@@ -25,12 +25,20 @@ serve(async (req) => {
   try {
     logStep("Function started");
 
+    const { email } = await req.json();
+    logStep("Email received", { email });
+
+    if (!email) {
+      throw new Error("Email is required");
+    }
+
     const stripe = new Stripe(Deno.env.get("STRIPE_SECRET_KEY") || "", { 
       apiVersion: "2025-08-27.basil" 
     });
 
     logStep("Creating checkout session");
     const session = await stripe.checkout.sessions.create({
+      customer_email: email,
       line_items: [
         {
           price: "price_1SXH7fKW4EObOGwjlBVB7CEt",
