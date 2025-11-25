@@ -75,6 +75,7 @@ serve(async (req) => {
         let subscriptionStatus = 'none';
         let subscriptionSource = null;
         let expiresAt = null;
+        let subscriptionId = null;
 
         // Check manual subscription
         const manualSub = manualSubs?.find(sub => sub.user_id === user.id);
@@ -84,6 +85,7 @@ serve(async (req) => {
             subscriptionStatus = 'active';
             subscriptionSource = 'manual';
             expiresAt = manualSub.expires_at;
+            subscriptionId = manualSub.id;
           }
         }
 
@@ -114,7 +116,8 @@ serve(async (req) => {
           created_at: user.created_at,
           subscriptionStatus,
           subscriptionSource,
-          expiresAt
+          expiresAt,
+          subscriptionId
         };
       })
     );
