@@ -25,24 +25,12 @@ serve(async (req) => {
   try {
     logStep("Function started");
 
-    const authHeader = req.headers.get("Authorization");
-    if (!authHeader) throw new Error("No authorization header provided");
-
-    const token = authHeader.replace("Bearer ", "");
-    const { data: userData, error: userError } = await supabaseClient.auth.getUser(token);
-    if (userError) throw new Error(`Authentication error: ${userError.message}`);
-    const user = userData.user;
-    if (!user?.email) throw new Error("User not authenticated or email not available");
-    
-    logStep("Processing subscription for user", { email: user.email });
-
     const stripe = new Stripe(Deno.env.get("STRIPE_SECRET_KEY") || "", { 
       apiVersion: "2025-08-27.basil" 
     });
 
     logStep("Creating checkout session");
     const session = await stripe.checkout.sessions.create({
-      customer_email: user.email,
       line_items: [
         {
           price: "price_1SXH7fKW4EObOGwjlBVB7CEt",
@@ -53,6 +41,7 @@ serve(async (req) => {
       success_url: `${req.headers.get("origin")}/subscription-success`,
       cancel_url: `${req.headers.get("origin")}/pricing`,
       billing_address_collection: "auto",
+      customer_creation: "always",
     });
 
     logStep("Checkout session created", { sessionId: session.id });
