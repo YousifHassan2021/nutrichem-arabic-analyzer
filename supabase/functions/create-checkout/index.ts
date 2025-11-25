@@ -1,6 +1,5 @@
 import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
 import Stripe from "https://esm.sh/stripe@18.5.0";
-import { createClient } from "https://esm.sh/@supabase/supabase-js@2.57.2";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -17,19 +16,14 @@ serve(async (req) => {
     return new Response(null, { headers: corsHeaders });
   }
 
-  const supabaseClient = createClient(
-    Deno.env.get("SUPABASE_URL") ?? "",
-    Deno.env.get("SUPABASE_ANON_KEY") ?? ""
-  );
-
   try {
     logStep("Function started");
 
-    const { email } = await req.json();
-    logStep("Email received", { email });
+    const { deviceId } = await req.json();
+    logStep("Device ID received", { deviceId });
 
-    if (!email) {
-      throw new Error("Email is required");
+    if (!deviceId) {
+      throw new Error("Device ID is required");
     }
 
     const stripe = new Stripe(Deno.env.get("STRIPE_SECRET_KEY") || "", { 
@@ -38,7 +32,6 @@ serve(async (req) => {
 
     logStep("Creating checkout session");
     const session = await stripe.checkout.sessions.create({
-      customer_email: email,
       line_items: [
         {
           price: "price_1SXH7fKW4EObOGwjlBVB7CEt",
@@ -46,9 +39,12 @@ serve(async (req) => {
         },
       ],
       mode: "subscription",
-      success_url: `${req.headers.get("origin")}/subscription-success`,
+      success_url: `${req.headers.get("origin")}/subscription-success?device=${deviceId}`,
       cancel_url: `${req.headers.get("origin")}/pricing`,
       billing_address_collection: "auto",
+      metadata: {
+        device_id: deviceId
+      }
     });
 
     logStep("Checkout session created", { sessionId: session.id });

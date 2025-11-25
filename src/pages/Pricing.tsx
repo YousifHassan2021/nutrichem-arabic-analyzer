@@ -2,41 +2,35 @@ import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Check, Loader2, Crown } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { toast } from "sonner";
 import { useAuth } from "@/contexts/AuthContext";
 import { useNavigate } from "react-router-dom";
-import { Input } from "@/components/ui/input";
 import logo from "@/assets/logo.png";
 
+// دالة للحصول على أو إنشاء معرف جهاز فريد
+const getDeviceId = () => {
+  let deviceId = localStorage.getItem("deviceId");
+  if (!deviceId) {
+    deviceId = crypto.randomUUID();
+    localStorage.setItem("deviceId", deviceId);
+  }
+  return deviceId;
+};
+
 const Pricing = () => {
-  const { user, subscribed, subscriptionEnd, checkingSubscription, checkSubscription } = useAuth();
+  const { subscribed, subscriptionEnd, checkingSubscription, checkSubscription } = useAuth();
   const navigate = useNavigate();
   const [isLoading, setIsLoading] = useState(false);
   const [isManaging, setIsManaging] = useState(false);
-  const [email, setEmail] = useState("");
-  const [showEmailInput, setShowEmailInput] = useState(false);
 
   const handleSubscribe = async () => {
-    if (!email.trim()) {
-      setShowEmailInput(true);
-      toast.error("يرجى إدخال بريدك الإلكتروني");
-      return;
-    }
-
-    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-    if (!emailRegex.test(email)) {
-      toast.error("يرجى إدخال بريد إلكتروني صحيح");
-      return;
-    }
-
     setIsLoading(true);
     try {
-      // حفظ الإيميل في localStorage قبل الدفع
-      localStorage.setItem("pendingSubscriptionEmail", email);
+      const deviceId = getDeviceId();
 
       const { data, error } = await supabase.functions.invoke("create-checkout", {
-        body: { email }
+        body: { deviceId }
       });
       
       if (error) {
@@ -52,7 +46,6 @@ const Pricing = () => {
     } catch (error) {
       console.error("Error creating checkout:", error);
       toast.error("حدث خطأ أثناء إنشاء جلسة الدفع: " + (error as Error).message);
-      localStorage.removeItem("pendingSubscriptionEmail");
     } finally {
       setIsLoading(false);
     }
@@ -118,13 +111,8 @@ const Pricing = () => {
               <Crown className="h-6 w-6 text-accent" />
               <h3 className="font-semibold text-lg">اشتراكك النشط</h3>
             </div>
-            {user?.email && (
-              <p className="text-sm font-medium mb-2">
-                البريد الإلكتروني: {user.email}
-              </p>
-            )}
             <p className="text-sm text-muted-foreground mb-4">
-              اشتراكك نشط حالياً ويستمر حتى:{" "}
+              اشتراكك نشط حالياً على هذا الجهاز ويستمر حتى:{" "}
               {subscriptionEnd ? new Date(subscriptionEnd).toLocaleDateString("ar-SA") : "غير محدد"}
             </p>
             <div className="flex gap-3">
@@ -221,36 +209,24 @@ const Pricing = () => {
                 )}
               </Button>
             ) : (
-              <div className="space-y-4">
-                {showEmailInput || !user ? (
-                  <Input
-                    type="email"
-                    placeholder="أدخل بريدك الإلكتروني"
-                    value={email}
-                    onChange={(e) => setEmail(e.target.value)}
-                    className="text-center"
-                    dir="ltr"
-                  />
-                ) : null}
-                <Button
-                  onClick={handleSubscribe}
-                  disabled={isLoading}
-                  className="w-full"
-                  size="lg"
-                >
-                  {isLoading ? (
-                    <>
-                      <Loader2 className="ml-2 h-5 w-5 animate-spin" />
-                      جاري التحميل...
-                    </>
-                  ) : (
-                    <>
-                      <Crown className="ml-2 h-5 w-5" />
-                      اشترك الآن
-                    </>
-                  )}
-                </Button>
-              </div>
+              <Button
+                onClick={handleSubscribe}
+                disabled={isLoading}
+                className="w-full"
+                size="lg"
+              >
+                {isLoading ? (
+                  <>
+                    <Loader2 className="ml-2 h-5 w-5 animate-spin" />
+                    جاري التحميل...
+                  </>
+                ) : (
+                  <>
+                    <Crown className="ml-2 h-5 w-5" />
+                    اشترك الآن
+                  </>
+                )}
+              </Button>
             )}
           </Card>
         </div>

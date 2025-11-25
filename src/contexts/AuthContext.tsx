@@ -30,16 +30,18 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const { toast } = useToast();
 
   const checkSubscription = async () => {
-    if (!session) {
-      setSubscribed(false);
-      setSubscriptionEnd(null);
-      setProductId(null);
-      return;
-    }
-
     setCheckingSubscription(true);
     try {
-      const { data, error } = await supabase.functions.invoke("check-subscription");
+      // الحصول على معرف الجهاز من localStorage
+      let deviceId = localStorage.getItem("deviceId");
+      if (!deviceId) {
+        deviceId = crypto.randomUUID();
+        localStorage.setItem("deviceId", deviceId);
+      }
+
+      const { data, error } = await supabase.functions.invoke("check-subscription", {
+        body: { deviceId }
+      });
       
       if (error) {
         console.error("Error checking subscription:", error);
@@ -62,16 +64,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       (event, session) => {
         setSession(session);
         setUser(session?.user ?? null);
-        
-        if (session?.user) {
-          setTimeout(() => {
-            checkSubscription();
-          }, 0);
-        } else {
-          setSubscribed(false);
-          setSubscriptionEnd(null);
-          setProductId(null);
-        }
       }
     );
 
@@ -80,9 +72,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       setSession(session);
       setUser(session?.user ?? null);
       
-      if (session?.user) {
-        await checkSubscription();
-      }
+      // التحقق من الاشتراك بغض النظر عن حالة تسجيل الدخول
+      await checkSubscription();
       
       setLoading(false);
     };
@@ -95,14 +86,13 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   }, []);
 
   useEffect(() => {
-    if (!session?.user) return;
-
+    // التحقق الدوري من الاشتراك كل دقيقة
     const interval = setInterval(() => {
       checkSubscription();
     }, 60000);
 
     return () => clearInterval(interval);
-  }, [session]);
+  }, []);
 
   const signUp = async (email: string, password: string) => {
     const redirectUrl = `${window.location.origin}/`;
