@@ -50,8 +50,10 @@ serve(async (req) => {
       });
     }
 
-    const customerId = customers.data[0].id;
-    logStep("Found Stripe customer", { customerId });
+    const customer = customers.data[0];
+    const customerId = customer.id;
+    const subscriberName = customer.name || customer.metadata?.subscriber_name || null;
+    logStep("Found Stripe customer", { customerId, subscriberName });
 
     const subscriptions = await stripe.subscriptions.list({
       customer: customerId,
@@ -93,7 +95,8 @@ serve(async (req) => {
     return new Response(JSON.stringify({
       subscribed: hasActiveSub,
       product_id: productId,
-      subscription_end: subscriptionEnd
+      subscription_end: subscriptionEnd,
+      subscriber_name: subscriberName
     }), {
       headers: { ...corsHeaders, "Content-Type": "application/json" },
       status: 200,

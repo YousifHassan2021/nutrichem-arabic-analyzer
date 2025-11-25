@@ -6,24 +6,34 @@ import { useState } from "react";
 import { toast } from "sonner";
 import { useAuth } from "@/contexts/AuthContext";
 import { useNavigate } from "react-router-dom";
+import { Input } from "@/components/ui/input";
 import logo from "@/assets/logo.png";
 
 const Pricing = () => {
-  const { user, subscribed, subscriptionEnd, checkingSubscription, checkSubscription } = useAuth();
+  const { user, subscribed, subscriptionEnd, checkingSubscription, checkSubscription, subscriberName } = useAuth();
   const navigate = useNavigate();
   const [isLoading, setIsLoading] = useState(false);
   const [isManaging, setIsManaging] = useState(false);
+  const [email, setEmail] = useState("");
+  const [newSubscriberName, setNewSubscriberName] = useState("");
+  const [showSubscribeForm, setShowSubscribeForm] = useState(false);
 
   const handleSubscribe = async () => {
-    if (!user) {
-      toast.error("يرجى تسجيل الدخول أولاً");
-      navigate("/auth");
+    if (!email.trim()) {
+      toast.error("يرجى إدخال البريد الإلكتروني");
+      return;
+    }
+    
+    if (!newSubscriberName.trim()) {
+      toast.error("يرجى إدخال الاسم");
       return;
     }
 
     setIsLoading(true);
     try {
-      const { data, error } = await supabase.functions.invoke("create-checkout");
+      const { data, error } = await supabase.functions.invoke("create-checkout", {
+        body: { email, name: newSubscriberName }
+      });
       
       if (error) throw error;
       
@@ -97,6 +107,11 @@ const Pricing = () => {
               <Crown className="h-6 w-6 text-accent" />
               <h3 className="font-semibold text-lg">اشتراكك النشط</h3>
             </div>
+            {subscriberName && (
+              <p className="text-sm font-medium mb-2">
+                المشترك: {subscriberName}
+              </p>
+            )}
             <p className="text-sm text-muted-foreground mb-4">
               اشتراكك نشط حالياً ويستمر حتى:{" "}
               {subscriptionEnd ? new Date(subscriptionEnd).toLocaleDateString("ar-SA") : "غير محدد"}
@@ -193,25 +208,64 @@ const Pricing = () => {
                   </>
                 )}
               </Button>
-            ) : (
+            ) : !showSubscribeForm ? (
               <Button
-                onClick={handleSubscribe}
-                disabled={isLoading}
+                onClick={() => setShowSubscribeForm(true)}
                 className="w-full"
                 size="lg"
               >
-                {isLoading ? (
-                  <>
-                    <Loader2 className="ml-2 h-5 w-5 animate-spin" />
-                    جاري التحميل...
-                  </>
-                ) : (
-                  <>
-                    <Crown className="ml-2 h-5 w-5" />
-                    اشترك الآن
-                  </>
-                )}
+                <Crown className="ml-2 h-5 w-5" />
+                اشترك الآن
               </Button>
+            ) : (
+              <div className="space-y-4">
+                <div className="space-y-2">
+                  <label className="text-sm font-medium">الاسم</label>
+                  <Input
+                    type="text"
+                    placeholder="أدخل اسمك"
+                    value={newSubscriberName}
+                    onChange={(e) => setNewSubscriberName(e.target.value)}
+                    className="text-base"
+                  />
+                </div>
+                <div className="space-y-2">
+                  <label className="text-sm font-medium">البريد الإلكتروني</label>
+                  <Input
+                    type="email"
+                    placeholder="أدخل بريدك الإلكتروني"
+                    value={email}
+                    onChange={(e) => setEmail(e.target.value)}
+                    className="text-base"
+                  />
+                </div>
+                <Button
+                  onClick={handleSubscribe}
+                  disabled={isLoading}
+                  className="w-full"
+                  size="lg"
+                >
+                  {isLoading ? (
+                    <>
+                      <Loader2 className="ml-2 h-5 w-5 animate-spin" />
+                      جاري التحميل...
+                    </>
+                  ) : (
+                    <>
+                      <Crown className="ml-2 h-5 w-5" />
+                      متابعة إلى الدفع
+                    </>
+                  )}
+                </Button>
+                <Button
+                  onClick={() => setShowSubscribeForm(false)}
+                  variant="ghost"
+                  className="w-full"
+                  size="sm"
+                >
+                  إلغاء
+                </Button>
+              </div>
             )}
           </Card>
         </div>
