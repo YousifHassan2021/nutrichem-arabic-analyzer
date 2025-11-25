@@ -14,16 +14,10 @@ const Pricing = () => {
   const navigate = useNavigate();
   const [isLoading, setIsLoading] = useState(false);
   const [isManaging, setIsManaging] = useState(false);
-  const [email, setEmail] = useState("");
   const [newSubscriberName, setNewSubscriberName] = useState("");
   const [showSubscribeForm, setShowSubscribeForm] = useState(false);
 
   const handleSubscribe = async () => {
-    if (!email.trim()) {
-      toast.error("يرجى إدخال البريد الإلكتروني");
-      return;
-    }
-    
     if (!newSubscriberName.trim()) {
       toast.error("يرجى إدخال الاسم");
       return;
@@ -32,7 +26,7 @@ const Pricing = () => {
     setIsLoading(true);
     try {
       const { data, error } = await supabase.functions.invoke("create-checkout", {
-        body: { email, name: newSubscriberName }
+        body: { name: newSubscriberName }
       });
       
       if (error) throw error;
@@ -228,16 +222,9 @@ const Pricing = () => {
                     onChange={(e) => setNewSubscriberName(e.target.value)}
                     className="text-base"
                   />
-                </div>
-                <div className="space-y-2">
-                  <label className="text-sm font-medium">البريد الإلكتروني</label>
-                  <Input
-                    type="email"
-                    placeholder="أدخل بريدك الإلكتروني"
-                    value={email}
-                    onChange={(e) => setEmail(e.target.value)}
-                    className="text-base"
-                  />
+                  <p className="text-xs text-muted-foreground">
+                    سيتم طلب بريدك الإلكتروني في صفحة الدفع
+                  </p>
                 </div>
                 <Button
                   onClick={handleSubscribe}
