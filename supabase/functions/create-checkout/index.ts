@@ -35,7 +35,9 @@ serve(async (req) => {
       apiVersion: "2025-08-27.basil" 
     });
 
+    logStep("Creating checkout session with metadata");
     const session = await stripe.checkout.sessions.create({
+      customer_email: name ? undefined : undefined, // Stripe will ask for email
       line_items: [
         {
           price: "price_1SXH7fKW4EObOGwjlBVB7CEt",
@@ -53,6 +55,7 @@ serve(async (req) => {
           subscriber_name: name,
         },
       },
+      billing_address_collection: "auto",
     });
 
     logStep("Checkout session created", { sessionId: session.id });
