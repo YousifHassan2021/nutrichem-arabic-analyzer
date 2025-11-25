@@ -39,11 +39,43 @@ serve(async (req) => {
     
     logStep("User authenticated", { userId: user.id, email: user.email });
 
+    // First, check for manual subscription
+    const { data: manualSub, error: manualSubError } = await supabaseClient
+      .from('manual_subscriptions')
+      .select('*')
+      .eq('user_id', user.id)
+      .eq('status', 'active')
+      .single();
+
+    if (!manualSubError && manualSub) {
+      const expiresAt = new Date(manualSub.expires_at);
+      const now = new Date();
+      
+      if (expiresAt > now) {
+        logStep("Active manual subscription found", { 
+          subscriptionId: manualSub.id, 
+          expiresAt: manualSub.expires_at 
+        });
+        
+        return new Response(JSON.stringify({
+          subscribed: true,
+          product_id: 'manual_subscription',
+          subscription_end: manualSub.expires_at
+        }), {
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+          status: 200,
+        });
+      }
+    }
+
+    logStep("No active manual subscription, checking Stripe");
+
+    // Check Stripe subscription
     const stripe = new Stripe(stripeKey, { apiVersion: "2025-08-27.basil" });
     const customers = await stripe.customers.list({ email: user.email, limit: 1 });
     
     if (customers.data.length === 0) {
-      logStep("No customer found");
+      logStep("No Stripe customer found");
       return new Response(JSON.stringify({ subscribed: false }), {
         headers: { ...corsHeaders, "Content-Type": "application/json" },
         status: 200,
