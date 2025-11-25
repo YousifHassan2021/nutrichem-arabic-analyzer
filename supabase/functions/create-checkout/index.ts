@@ -41,7 +41,6 @@ serve(async (req) => {
       success_url: `${req.headers.get("origin")}/subscription-success`,
       cancel_url: `${req.headers.get("origin")}/pricing`,
       billing_address_collection: "auto",
-      customer_creation: "always",
     });
 
     logStep("Checkout session created", { sessionId: session.id });
