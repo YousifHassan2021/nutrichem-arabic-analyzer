@@ -56,6 +56,34 @@ const Pricing = () => {
     }
   };
 
+  const handleLinkSubscription = async (oldEmail: string) => {
+    try {
+      setIsLoading(true);
+      const { data: { session } } = await supabase.auth.getSession();
+      
+      if (!session) {
+        toast.error("يجب تسجيل الدخول أولاً");
+        return;
+      }
+
+      const { data, error } = await supabase.functions.invoke('update-customer-email', {
+        body: { oldEmail }
+      });
+      
+      if (error) throw error;
+      
+      toast.success("تم ربط الاشتراك بنجاح");
+      
+      // Refresh subscription status
+      await checkSubscription();
+    } catch (error: any) {
+      console.error('Error linking subscription:', error);
+      toast.error(error.message || "حدث خطأ أثناء ربط الاشتراك");
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
   return (
     <div className="min-h-screen bg-background" dir="rtl">
       {/* Header */}
@@ -135,6 +163,44 @@ const Pricing = () => {
                   "تحديث حالة الاشتراك"
                 )}
               </Button>
+            </div>
+          </Card>
+        )}
+
+        {!subscribed && user && (
+          <Card className="p-6 border-2 border-accent/20 bg-accent/5 mb-8">
+            <div className="text-center space-y-4">
+              <h3 className="text-lg font-semibold">لديك اشتراك في Stripe؟</h3>
+              <p className="text-sm text-muted-foreground">
+                إذا قمت بالدفع مسبقًا باستخدام إيميل مختلف، يمكنك ربط الاشتراك بحسابك الحالي
+              </p>
+              <div className="flex gap-2">
+                <Input
+                  type="email"
+                  placeholder="أدخل الإيميل المستخدم في الدفع"
+                  id="link-email"
+                  className="flex-1"
+                  dir="ltr"
+                />
+                <Button
+                  onClick={() => {
+                    const input = document.getElementById('link-email') as HTMLInputElement;
+                    if (input?.value) {
+                      handleLinkSubscription(input.value);
+                    }
+                  }}
+                  disabled={isLoading}
+                >
+                  {isLoading ? (
+                    <>
+                      <Loader2 className="ml-2 h-4 w-4 animate-spin" />
+                      جارٍ الربط...
+                    </>
+                  ) : (
+                    "ربط الاشتراك"
+                  )}
+                </Button>
+              </div>
             </div>
           </Card>
         )}
