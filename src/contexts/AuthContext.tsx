@@ -7,9 +7,14 @@ interface AuthContextType {
   user: User | null;
   session: Session | null;
   loading: boolean;
+  subscribed: boolean;
+  subscriptionEnd: string | null;
+  productId: string | null;
+  checkingSubscription: boolean;
   signUp: (email: string, password: string) => Promise<{ error: any }>;
   signIn: (email: string, password: string) => Promise<{ error: any }>;
   signOut: () => Promise<void>;
+  checkSubscription: () => Promise<void>;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -18,30 +23,65 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
   const [session, setSession] = useState<Session | null>(null);
   const [loading, setLoading] = useState(true);
+  const [subscribed, setSubscribed] = useState(false);
+  const [subscriptionEnd, setSubscriptionEnd] = useState<string | null>(null);
+  const [productId, setProductId] = useState<string | null>(null);
+  const [checkingSubscription, setCheckingSubscription] = useState(false);
   const { toast } = useToast();
+
+  const checkSubscription = async () => {
+    if (!session) {
+      setSubscribed(false);
+      setSubscriptionEnd(null);
+      setProductId(null);
+      return;
+    }
+
+    setCheckingSubscription(true);
+    try {
+      const { data, error } = await supabase.functions.invoke("check-subscription");
+      
+      if (error) {
+        console.error("Error checking subscription:", error);
+        setSubscribed(false);
+      } else {
+        setSubscribed(data?.subscribed || false);
+        setSubscriptionEnd(data?.subscription_end || null);
+        setProductId(data?.product_id || null);
+      }
+    } catch (error) {
+      console.error("Error checking subscription:", error);
+      setSubscribed(false);
+    } finally {
+      setCheckingSubscription(false);
+    }
+  };
 
   useEffect(() => {
     const { data: { subscription: authSubscription } } = supabase.auth.onAuthStateChange(
       (event, session) => {
         setSession(session);
         setUser(session?.user ?? null);
+        
+        if (session?.user) {
+          setTimeout(() => {
+            checkSubscription();
+          }, 0);
+        } else {
+          setSubscribed(false);
+          setSubscriptionEnd(null);
+          setProductId(null);
+        }
       }
     );
 
     const initAuth = async () => {
       const { data: { session } } = await supabase.auth.getSession();
+      setSession(session);
+      setUser(session?.user ?? null);
       
-      if (!session) {
-        const { data, error } = await supabase.auth.signInAnonymously();
-        if (error) {
-          console.error("Error signing in anonymously:", error);
-        } else {
-          setSession(data.session);
-          setUser(data.user);
-        }
-      } else {
-        setSession(session);
-        setUser(session.user);
+      if (session?.user) {
+        await checkSubscription();
       }
       
       setLoading(false);
@@ -53,6 +93,16 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       authSubscription.unsubscribe();
     };
   }, []);
+
+  useEffect(() => {
+    if (!session?.user) return;
+
+    const interval = setInterval(() => {
+      checkSubscription();
+    }, 60000);
+
+    return () => clearInterval(interval);
+  }, [session]);
 
   const signUp = async (email: string, password: string) => {
     const redirectUrl = `${window.location.origin}/`;
@@ -111,9 +161,14 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         user,
         session,
         loading,
+        subscribed,
+        subscriptionEnd,
+        productId,
+        checkingSubscription,
         signUp,
         signIn,
         signOut,
+        checkSubscription,
       }}
     >
       {children}
