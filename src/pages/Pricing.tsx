@@ -16,11 +16,6 @@ const Pricing = () => {
   const [isManaging, setIsManaging] = useState(false);
 
   const handleSubscribe = async () => {
-    if (!user) {
-      toast.error("يرجى تسجيل الدخول أولاً");
-      return;
-    }
-
     setIsLoading(true);
     try {
       const { data, error } = await supabase.functions.invoke("create-checkout");
@@ -206,7 +201,7 @@ const Pricing = () => {
             ) : (
               <Button
                 onClick={handleSubscribe}
-                disabled={isLoading || !user}
+                disabled={isLoading}
                 className="w-full"
                 size="lg"
               >
