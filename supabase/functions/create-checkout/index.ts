@@ -25,19 +25,24 @@ serve(async (req) => {
   try {
     logStep("Function started");
 
-    const { name } = await req.json();
+    const authHeader = req.headers.get("Authorization");
+    if (!authHeader) throw new Error("No authorization header provided");
+
+    const token = authHeader.replace("Bearer ", "");
+    const { data: userData, error: userError } = await supabaseClient.auth.getUser(token);
+    if (userError) throw new Error(`Authentication error: ${userError.message}`);
+    const user = userData.user;
+    if (!user?.email) throw new Error("User not authenticated or email not available");
     
-    if (!name) throw new Error("Name is required");
-    
-    logStep("Processing subscription", { name });
+    logStep("Processing subscription for user", { email: user.email });
 
     const stripe = new Stripe(Deno.env.get("STRIPE_SECRET_KEY") || "", { 
       apiVersion: "2025-08-27.basil" 
     });
 
-    logStep("Creating checkout session with metadata");
+    logStep("Creating checkout session");
     const session = await stripe.checkout.sessions.create({
-      customer_email: name ? undefined : undefined, // Stripe will ask for email
+      customer_email: user.email,
       line_items: [
         {
           price: "price_1SXH7fKW4EObOGwjlBVB7CEt",
@@ -47,14 +52,6 @@ serve(async (req) => {
       mode: "subscription",
       success_url: `${req.headers.get("origin")}/subscription-success`,
       cancel_url: `${req.headers.get("origin")}/pricing`,
-      metadata: {
-        subscriber_name: name,
-      },
-      subscription_data: {
-        metadata: {
-          subscriber_name: name,
-        },
-      },
       billing_address_collection: "auto",
     });
 

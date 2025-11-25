@@ -39,7 +39,7 @@ interface AnalysisResult {
 }
 
 const Index = () => {
-  const { subscribed, user, subscriberName } = useAuth();
+  const { subscribed, user } = useAuth();
   const navigate = useNavigate();
   const [productName, setProductName] = useState("");
   const [ingredients, setIngredients] = useState("");
@@ -203,11 +203,11 @@ const Index = () => {
                 </p>
               </div>
             </div>
-            {subscriberName && subscribed && (
+            {user?.email && subscribed && (
               <div className="hidden md:flex items-center gap-2 px-4 py-2 bg-accent/10 border border-accent/20 rounded-lg">
                 <Crown className="h-4 w-4 text-accent" />
                 <span className="text-sm font-medium text-foreground">
-                  {subscriberName}
+                  {user.email}
                 </span>
               </div>
             )}

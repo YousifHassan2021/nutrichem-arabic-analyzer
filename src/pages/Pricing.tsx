@@ -10,27 +10,20 @@ import { Input } from "@/components/ui/input";
 import logo from "@/assets/logo.png";
 
 const Pricing = () => {
-  const { user, subscribed, subscriptionEnd, checkingSubscription, checkSubscription, subscriberName } = useAuth();
+  const { user, subscribed, subscriptionEnd, checkingSubscription, checkSubscription } = useAuth();
   const navigate = useNavigate();
   const [isLoading, setIsLoading] = useState(false);
   const [isManaging, setIsManaging] = useState(false);
-  const [newSubscriberName, setNewSubscriberName] = useState("");
-  const [showSubscribeForm, setShowSubscribeForm] = useState(false);
 
   const handleSubscribe = async () => {
-    if (!newSubscriberName.trim()) {
-      toast.error("يرجى إدخال الاسم");
+    if (!user) {
+      toast.error("يرجى تسجيل الدخول أولاً");
       return;
     }
 
     setIsLoading(true);
     try {
-      console.log("Creating checkout with name:", newSubscriberName);
-      const { data, error } = await supabase.functions.invoke("create-checkout", {
-        body: { name: newSubscriberName }
-      });
-      
-      console.log("Checkout response:", { data, error });
+      const { data, error } = await supabase.functions.invoke("create-checkout");
       
       if (error) {
         console.error("Checkout error:", error);
@@ -38,7 +31,6 @@ const Pricing = () => {
       }
       
       if (data?.url) {
-        console.log("Redirecting to:", data.url);
         window.location.href = data.url;
       } else {
         throw new Error("لم يتم استلام رابط الدفع");
@@ -110,9 +102,9 @@ const Pricing = () => {
               <Crown className="h-6 w-6 text-accent" />
               <h3 className="font-semibold text-lg">اشتراكك النشط</h3>
             </div>
-            {subscriberName && (
+            {user?.email && (
               <p className="text-sm font-medium mb-2">
-                المشترك: {subscriberName}
+                البريد الإلكتروني: {user.email}
               </p>
             )}
             <p className="text-sm text-muted-foreground mb-4">
@@ -211,57 +203,25 @@ const Pricing = () => {
                   </>
                 )}
               </Button>
-            ) : !showSubscribeForm ? (
+            ) : (
               <Button
-                onClick={() => setShowSubscribeForm(true)}
+                onClick={handleSubscribe}
+                disabled={isLoading || !user}
                 className="w-full"
                 size="lg"
               >
-                <Crown className="ml-2 h-5 w-5" />
-                اشترك الآن
+                {isLoading ? (
+                  <>
+                    <Loader2 className="ml-2 h-5 w-5 animate-spin" />
+                    جاري التحميل...
+                  </>
+                ) : (
+                  <>
+                    <Crown className="ml-2 h-5 w-5" />
+                    اشترك الآن
+                  </>
+                )}
               </Button>
-            ) : (
-              <div className="space-y-4">
-                <div className="space-y-2">
-                  <label className="text-sm font-medium">الاسم</label>
-                  <Input
-                    type="text"
-                    placeholder="أدخل اسمك"
-                    value={newSubscriberName}
-                    onChange={(e) => setNewSubscriberName(e.target.value)}
-                    className="text-base"
-                  />
-                  <p className="text-xs text-muted-foreground">
-                    سيتم طلب بريدك الإلكتروني في صفحة الدفع
-                  </p>
-                </div>
-                <Button
-                  onClick={handleSubscribe}
-                  disabled={isLoading}
-                  className="w-full"
-                  size="lg"
-                >
-                  {isLoading ? (
-                    <>
-                      <Loader2 className="ml-2 h-5 w-5 animate-spin" />
-                      جاري التحميل...
-                    </>
-                  ) : (
-                    <>
-                      <Crown className="ml-2 h-5 w-5" />
-                      متابعة إلى الدفع
-                    </>
-                  )}
-                </Button>
-                <Button
-                  onClick={() => setShowSubscribeForm(false)}
-                  variant="ghost"
-                  className="w-full"
-                  size="sm"
-                >
-                  إلغاء
-                </Button>
-              </div>
             )}
           </Card>
         </div>
