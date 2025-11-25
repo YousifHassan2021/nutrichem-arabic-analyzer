@@ -6,7 +6,8 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
-import { Shield, Loader2, UserPlus, RefreshCw } from "lucide-react";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+import { Shield, Loader2, UserPlus, RefreshCw, Clock, XCircle } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { useAuth } from "@/contexts/AuthContext";
@@ -19,6 +20,7 @@ interface User {
   subscriptionStatus: string;
   subscriptionSource: string | null;
   expiresAt: string | null;
+  subscriptionId: string | null;
 }
 
 const AdminDashboard = () => {
@@ -31,6 +33,11 @@ const AdminDashboard = () => {
   const [userEmail, setUserEmail] = useState("");
   const [durationMonths, setDurationMonths] = useState("1");
   const [notes, setNotes] = useState("");
+  const [extendDialogOpen, setExtendDialogOpen] = useState(false);
+  const [selectedSubId, setSelectedSubId] = useState<string | null>(null);
+  const [extendMonths, setExtendMonths] = useState("1");
+  const [extending, setExtending] = useState(false);
+  const [cancelling, setCancelling] = useState<string | null>(null);
 
   useEffect(() => {
     checkAdminStatus();
@@ -104,6 +111,61 @@ const AdminDashboard = () => {
     } finally {
       setActivating(false);
     }
+  };
+
+  const handleExtendSubscription = async () => {
+    if (!selectedSubId || !extendMonths) {
+      toast.error("يرجى إدخال مدة التمديد");
+      return;
+    }
+
+    try {
+      setExtending(true);
+      const { data, error } = await supabase.functions.invoke('extend-manual-subscription', {
+        body: { subscriptionId: selectedSubId, additionalMonths: extendMonths }
+      });
+      
+      if (error) throw error;
+      
+      toast.success("تم تمديد الاشتراك بنجاح");
+      setExtendDialogOpen(false);
+      setSelectedSubId(null);
+      setExtendMonths("1");
+      await loadUsers();
+    } catch (error: any) {
+      console.error("Error extending subscription:", error);
+      toast.error(error.message || "حدث خطأ أثناء تمديد الاشتراك");
+    } finally {
+      setExtending(false);
+    }
+  };
+
+  const handleCancelSubscription = async (subscriptionId: string) => {
+    if (!confirm("هل أنت متأكد من إلغاء هذا الاشتراك؟")) {
+      return;
+    }
+
+    try {
+      setCancelling(subscriptionId);
+      const { data, error } = await supabase.functions.invoke('cancel-manual-subscription', {
+        body: { subscriptionId }
+      });
+      
+      if (error) throw error;
+      
+      toast.success("تم إلغاء الاشتراك بنجاح");
+      await loadUsers();
+    } catch (error: any) {
+      console.error("Error cancelling subscription:", error);
+      toast.error(error.message || "حدث خطأ أثناء إلغاء الاشتراك");
+    } finally {
+      setCancelling(null);
+    }
+  };
+
+  const openExtendDialog = (subscriptionId: string) => {
+    setSelectedSubId(subscriptionId);
+    setExtendDialogOpen(true);
   };
 
   if (loading) {
@@ -226,6 +288,7 @@ const AdminDashboard = () => {
                   <TableHead className="text-right">مصدر الاشتراك</TableHead>
                   <TableHead className="text-right">تاريخ الانتهاء</TableHead>
                   <TableHead className="text-right">تاريخ التسجيل</TableHead>
+                  <TableHead className="text-right">الإجراءات</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -255,6 +318,36 @@ const AdminDashboard = () => {
                     <TableCell>
                       {new Date(user.created_at).toLocaleDateString('ar-SA')}
                     </TableCell>
+                    <TableCell>
+                      {user.subscriptionSource === 'manual' && user.subscriptionId && (
+                        <div className="flex gap-2">
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            onClick={() => openExtendDialog(user.subscriptionId!)}
+                          >
+                            <Clock className="h-4 w-4 ml-1" />
+                            تمديد
+                          </Button>
+                          <Button
+                            size="sm"
+                            variant="destructive"
+                            onClick={() => handleCancelSubscription(user.subscriptionId!)}
+                            disabled={cancelling === user.subscriptionId}
+                          >
+                            {cancelling === user.subscriptionId ? (
+                              <Loader2 className="h-4 w-4 animate-spin" />
+                            ) : (
+                              <>
+                                <XCircle className="h-4 w-4 ml-1" />
+                                إلغاء
+                              </>
+                            )}
+                          </Button>
+                        </div>
+                      )}
+                      {user.subscriptionSource !== 'manual' && '-'}
+                    </TableCell>
                   </TableRow>
                 ))}
               </TableBody>
@@ -262,6 +355,49 @@ const AdminDashboard = () => {
           </div>
         </Card>
       </main>
+
+      {/* Extend Subscription Dialog */}
+      <Dialog open={extendDialogOpen} onOpenChange={setExtendDialogOpen}>
+        <DialogContent dir="rtl">
+          <DialogHeader>
+            <DialogTitle>تمديد الاشتراك</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4 py-4">
+            <div className="space-y-2">
+              <label className="text-sm font-medium">مدة التمديد (بالأشهر)</label>
+              <Input
+                type="number"
+                min="1"
+                value={extendMonths}
+                onChange={(e) => setExtendMonths(e.target.value)}
+                placeholder="عدد الأشهر"
+              />
+            </div>
+            <div className="flex gap-2 justify-end">
+              <Button
+                variant="outline"
+                onClick={() => setExtendDialogOpen(false)}
+                disabled={extending}
+              >
+                إلغاء
+              </Button>
+              <Button
+                onClick={handleExtendSubscription}
+                disabled={extending || !extendMonths}
+              >
+                {extending ? (
+                  <>
+                    <Loader2 className="ml-2 h-4 w-4 animate-spin" />
+                    جاري التمديد...
+                  </>
+                ) : (
+                  "تمديد الاشتراك"
+                )}
+              </Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 };
