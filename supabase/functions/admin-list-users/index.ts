@@ -122,10 +122,26 @@ serve(async (req) => {
       })
     );
 
-    logStep("Users fetched", { count: usersWithStatus.length });
+    // Add manual subscriptions without user_id (pending registrations)
+    const pendingManualSubs = manualSubs?.filter(sub => !sub.user_id && sub.status === 'active') || [];
+    const pendingUsers = pendingManualSubs.map(sub => {
+      const expiry = new Date(sub.expires_at);
+      return {
+        id: sub.id,
+        email: sub.user_email,
+        created_at: sub.created_at,
+        subscriptionStatus: expiry > new Date() ? 'active' : 'none',
+        subscriptionSource: 'manual',
+        expiresAt: sub.expires_at,
+        subscriptionId: sub.id
+      };
+    });
+
+    const allUsersWithStatus = [...usersWithStatus, ...pendingUsers];
+    logStep("Users fetched", { count: allUsersWithStatus.length });
 
     return new Response(JSON.stringify({ 
-      users: usersWithStatus
+      users: allUsersWithStatus
     }), {
       headers: { ...corsHeaders, "Content-Type": "application/json" },
       status: 200,
