@@ -25,41 +25,17 @@ serve(async (req) => {
   try {
     logStep("Function started");
 
-    const { email, name } = await req.json();
+    const { name } = await req.json();
     
-    if (!email) throw new Error("Email is required");
     if (!name) throw new Error("Name is required");
     
-    logStep("Processing subscription", { email, name });
+    logStep("Processing subscription", { name });
 
     const stripe = new Stripe(Deno.env.get("STRIPE_SECRET_KEY") || "", { 
       apiVersion: "2025-08-27.basil" 
     });
 
-    const customers = await stripe.customers.list({ email, limit: 1 });
-    let customerId;
-    
-    if (customers.data.length > 0) {
-      customerId = customers.data[0].id;
-      logStep("Found existing customer", { customerId });
-      // Update customer name if it changed
-      await stripe.customers.update(customerId, {
-        name,
-        metadata: { subscriber_name: name }
-      });
-    } else {
-      logStep("Creating new customer");
-      const customer = await stripe.customers.create({
-        email,
-        name,
-        metadata: { subscriber_name: name }
-      });
-      customerId = customer.id;
-      logStep("Created new customer", { customerId });
-    }
-
     const session = await stripe.checkout.sessions.create({
-      customer: customerId,
       line_items: [
         {
           price: "price_1SXH7fKW4EObOGwjlBVB7CEt",
@@ -68,7 +44,15 @@ serve(async (req) => {
       ],
       mode: "subscription",
       success_url: `${req.headers.get("origin")}/subscription-success`,
-      cancel_url: `${req.headers.get("origin")}/`,
+      cancel_url: `${req.headers.get("origin")}/pricing`,
+      metadata: {
+        subscriber_name: name,
+      },
+      subscription_data: {
+        metadata: {
+          subscriber_name: name,
+        },
+      },
     });
 
     logStep("Checkout session created", { sessionId: session.id });
