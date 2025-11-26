@@ -1,6 +1,6 @@
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Check, Loader2, Crown } from "lucide-react";
+import { Check, Loader2, Crown, Link as LinkIcon } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useState, useEffect } from "react";
 import { toast } from "sonner";
@@ -209,24 +209,36 @@ const Pricing = () => {
                 )}
               </Button>
             ) : (
-              <Button
-                onClick={handleSubscribe}
-                disabled={isLoading}
-                className="w-full"
-                size="lg"
-              >
-                {isLoading ? (
-                  <>
-                    <Loader2 className="ml-2 h-5 w-5 animate-spin" />
-                    جاري التحميل...
-                  </>
-                ) : (
-                  <>
-                    <Crown className="ml-2 h-5 w-5" />
-                    اشترك الآن
-                  </>
-                )}
-              </Button>
+              <div className="space-y-3">
+                <Button
+                  onClick={handleSubscribe}
+                  disabled={isLoading}
+                  className="w-full"
+                  size="lg"
+                >
+                  {isLoading ? (
+                    <>
+                      <Loader2 className="ml-2 h-5 w-5 animate-spin" />
+                      جاري التحميل...
+                    </>
+                  ) : (
+                    <>
+                      <Crown className="ml-2 h-5 w-5" />
+                      اشترك الآن
+                    </>
+                  )}
+                </Button>
+                
+                <Button
+                  onClick={() => navigate("/link-subscription")}
+                  variant="outline"
+                  className="w-full"
+                  size="lg"
+                >
+                  <LinkIcon className="ml-2 h-5 w-5" />
+                  دفعت بالفعل؟ اربط اشتراكك
+                </Button>
+              </div>
             )}
           </Card>
         </div>
