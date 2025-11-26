@@ -16,10 +16,14 @@ export default defineConfig(({ mode }) => ({
     VitePWA({
       registerType: 'autoUpdate',
       includeAssets: ['favicon.ico', 'robots.txt', 'icon-192.png', 'icon-512.png'],
+      devOptions: {
+        enabled: true,
+        type: 'module'
+      },
       manifest: {
-        name: 'NutriChem - المجلس العلمي للكيمياء الغذائية',
-        short_name: 'NutriChem',
-        description: 'تحليل علمي شامل لمكونات المنتجات الغذائية',
+        name: 'ماعون - المجلس العلمي للكيمياء الغذائية',
+        short_name: 'ماعون',
+        description: 'فحص دقيق لمكونات المنتجات استنادا إلى أدلة علمية',
         theme_color: '#0EA5E9',
         background_color: '#ffffff',
         display: 'standalone',
@@ -28,6 +32,7 @@ export default defineConfig(({ mode }) => ({
         dir: 'rtl',
         start_url: '/',
         scope: '/',
+        categories: ['health', 'food', 'lifestyle'],
         icons: [
           {
             src: 'icon-192.png',
@@ -41,10 +46,21 @@ export default defineConfig(({ mode }) => ({
             type: 'image/png',
             purpose: 'any maskable'
           }
+        ],
+        screenshots: [
+          {
+            src: 'icon-512.png',
+            sizes: '512x512',
+            type: 'image/png',
+            form_factor: 'narrow'
+          }
         ]
       },
       workbox: {
         globPatterns: ['**/*.{js,css,html,ico,png,svg,woff,woff2}'],
+        cleanupOutdatedCaches: true,
+        skipWaiting: true,
+        clientsClaim: true,
         runtimeCaching: [
           {
             urlPattern: /^https:\/\/fonts\.googleapis\.com\/.*/i,
@@ -53,10 +69,33 @@ export default defineConfig(({ mode }) => ({
               cacheName: 'google-fonts-cache',
               expiration: {
                 maxEntries: 10,
-                maxAgeSeconds: 60 * 60 * 24 * 365 // 1 year
+                maxAgeSeconds: 60 * 60 * 24 * 365
               },
               cacheableResponse: {
                 statuses: [0, 200]
+              }
+            }
+          },
+          {
+            urlPattern: /^https:\/\/.*\.supabase\.co\/.*/i,
+            handler: 'NetworkFirst',
+            options: {
+              cacheName: 'api-cache',
+              expiration: {
+                maxEntries: 50,
+                maxAgeSeconds: 60 * 5
+              },
+              networkTimeoutSeconds: 10
+            }
+          },
+          {
+            urlPattern: /\.(png|jpg|jpeg|svg|gif|webp)$/,
+            handler: 'CacheFirst',
+            options: {
+              cacheName: 'images-cache',
+              expiration: {
+                maxEntries: 100,
+                maxAgeSeconds: 60 * 60 * 24 * 30
               }
             }
           }
