@@ -45,7 +45,7 @@ serve(async (req) => {
       logStep("No customer found");
       return new Response(JSON.stringify({ 
         success: false, 
-        message: "لم يتم العثور على عميل بهذا البريد الإلكتروني" 
+        message: "لم يتم العثور على اشتراك بهذا البريد الإلكتروني. يرجى التأكد من:\n• استخدام نفس البريد المستخدم عند الدفع\n• أن يكون لديك اشتراك نشط\n• كتابة البريد بشكل صحيح" 
       }), {
         headers: { ...corsHeaders, "Content-Type": "application/json" },
         status: 404,
@@ -116,7 +116,7 @@ serve(async (req) => {
         logStep("No active subscriptions found (Stripe or manual)");
         return new Response(JSON.stringify({ 
           success: false, 
-          message: "لم يتم العثور على اشتراك نشط لهذا البريد" 
+          message: "لم يتم العثور على اشتراك نشط لهذا البريد. يرجى:\n• التأكد من إتمام عملية الدفع\n• الانتظار بضع دقائق بعد الدفع\n• التواصل مع الدعم إذا دفعت ولم يظهر الاشتراك" 
         }), {
           headers: { ...corsHeaders, "Content-Type": "application/json" },
           status: 404,
