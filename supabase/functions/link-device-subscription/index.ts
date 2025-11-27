@@ -55,27 +55,6 @@ serve(async (req) => {
     const customer = customers.data[0];
     logStep("Found customer", { customerId: customer.id });
 
-    // Get active subscriptions
-    const subscriptions = await stripe.subscriptions.list({
-      customer: customer.id,
-      status: "active",
-      limit: 1,
-    });
-
-    if (subscriptions.data.length === 0) {
-      logStep("No active subscriptions found");
-      return new Response(JSON.stringify({ 
-        success: false, 
-        message: "لم يتم العثور على اشتراك نشط لهذا البريد" 
-      }), {
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
-        status: 404,
-      });
-    }
-
-    const subscription = subscriptions.data[0];
-    logStep("Found active subscription", { subscriptionId: subscription.id });
-
     // Check if device already has a subscription
     const { data: existingSub } = await supabaseClient
       .from('device_subscriptions')
@@ -94,19 +73,72 @@ serve(async (req) => {
       });
     }
 
-    // Calculate expiration
-    const expiresAt = subscription.current_period_end 
-      ? new Date(subscription.current_period_end * 1000).toISOString()
-      : null;
+    // Try to find an active Stripe subscription first
+    const subscriptions = await stripe.subscriptions.list({
+      customer: customer.id,
+      status: "active",
+      limit: 1,
+    });
+
+    let expiresAt: string | null = null;
+    let stripeCustomerId: string | null = null;
+    let stripeSubscriptionId: string | null = null;
+    let status = "active";
+
+    if (subscriptions.data.length > 0) {
+      const subscription = subscriptions.data[0];
+      logStep("Found active Stripe subscription", { subscriptionId: subscription.id });
+
+      expiresAt = subscription.current_period_end
+        ? new Date(subscription.current_period_end * 1000).toISOString()
+        : null;
+      stripeCustomerId = customer.id;
+      stripeSubscriptionId = subscription.id;
+      status = subscription.status;
+    } else {
+      // If no active Stripe subscription, fallback to manual subscriptions
+      logStep("No active Stripe subscriptions found, checking manual_subscriptions");
+
+      const { data: manualSub, error: manualError } = await supabaseClient
+        .from('manual_subscriptions')
+        .select('*')
+        .eq('user_email', email)
+        .eq('status', 'active')
+        .order('expires_at', { ascending: false })
+        .maybeSingle();
+
+      if (manualError) {
+        logStep("Error fetching manual subscription", { error: manualError.message });
+        throw manualError;
+      }
+
+      if (!manualSub) {
+        logStep("No active subscriptions found (Stripe or manual)");
+        return new Response(JSON.stringify({ 
+          success: false, 
+          message: "لم يتم العثور على اشتراك نشط لهذا البريد" 
+        }), {
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+          status: 404,
+        });
+      }
+
+      expiresAt = manualSub.expires_at;
+      status = manualSub.status || 'active';
+      stripeCustomerId = null;
+      stripeSubscriptionId = null;
+
+      logStep("Found active manual subscription", { manualSubscriptionId: manualSub.id, expiresAt });
+    }
 
     // Insert into device_subscriptions
     const { data: newSub, error: insertError } = await supabaseClient
       .from('device_subscriptions')
       .insert({
         device_id: deviceId,
-        stripe_customer_id: customer.id,
-        stripe_subscription_id: subscription.id,
-        status: subscription.status,
+        stripe_customer_id: stripeCustomerId,
+        stripe_subscription_id: stripeSubscriptionId,
+        status,
         expires_at: expiresAt,
       })
       .select()

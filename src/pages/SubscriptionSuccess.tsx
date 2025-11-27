@@ -77,6 +77,15 @@ const SubscriptionSuccess = () => {
             >
               عرض تفاصيل الاشتراك
             </Button>
+            {!subscribed && !checkingSubscription && (
+              <Button
+                onClick={() => navigate("/link-subscription")}
+                variant="outline"
+                size="lg"
+              >
+                دفعت بالفعل؟ اربط اشتراكك
+              </Button>
+            )}
           </div>
         </Card>
       </main>
