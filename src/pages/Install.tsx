@@ -96,24 +96,26 @@ const Install = () => {
                 </ul>
               </div>
 
-              <Button 
-                onClick={deferredPrompt ? handleInstallClick : () => navigate("/")} 
-                className="w-full" 
-                size="lg"
-              >
-                {deferredPrompt ? (
-                  <>
-                    <Download className="ml-2 w-5 h-5" />
-                    تثبيت التطبيق الآن
-                  </>
-                ) : (
-                  "العودة للصفحة الرئيسية"
-                )}
-              </Button>
-              {!deferredPrompt && (
-                <p className="text-sm text-muted-foreground text-center">
-                  التطبيق متاح للتثبيت من قائمة المتصفح
-                </p>
+              {deferredPrompt ? (
+                <Button onClick={handleInstallClick} className="w-full" size="lg">
+                  <Download className="ml-2 w-5 h-5" />
+                  تثبيت التطبيق الآن
+                </Button>
+              ) : (
+                <div className="space-y-4">
+                  <p className="text-sm text-muted-foreground text-center">
+                    لتثبيت التطبيق على جهازك:
+                  </p>
+                  <div className="bg-muted p-4 rounded-lg space-y-2 text-sm">
+                    <p className="font-semibold">على الآيفون:</p>
+                    <p>اضغط على زر المشاركة <span className="inline-block">📤</span> ثم اختر "إضافة إلى الشاشة الرئيسية"</p>
+                    <p className="font-semibold mt-3">على الأندرويد:</p>
+                    <p>افتح قائمة المتصفح (⋮) واختر "تثبيت التطبيق" أو "إضافة إلى الشاشة الرئيسية"</p>
+                  </div>
+                  <Button onClick={() => navigate("/")} variant="outline" className="w-full">
+                    العودة للصفحة الرئيسية
+                  </Button>
+                </div>
               )}
             </>
           )}

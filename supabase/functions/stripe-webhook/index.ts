@@ -3,7 +3,7 @@ import Stripe from "https://esm.sh/stripe@18.5.0";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.57.2";
 
 const logStep = (step: string, details?: any) => {
-  const detailsStr = details ? ` - ${JSON.stringify(details)}` : "";
+  const detailsStr = details ? ` - ${JSON.stringify(details)}` : '';
   console.log(`[STRIPE-WEBHOOK] ${step}${detailsStr}`);
 };
 
@@ -14,7 +14,7 @@ serve(async (req) => {
 
   const supabaseClient = createClient(
     Deno.env.get("SUPABASE_URL") ?? "",
-    Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? "",
+    Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? ""
   );
 
   const signature = req.headers.get("stripe-signature");
@@ -25,8 +25,8 @@ serve(async (req) => {
 
   try {
     const body = await req.text();
-    const webhookSecret = Deno.env.get("Swhsec_3HWTDmUDb9HcLbApEzwvXK5mlVOD7sRT");
-
+    const webhookSecret = Deno.env.get("STRIPE_WEBHOOK_SECRET");
+    
     if (!webhookSecret) {
       logStep("ERROR: No webhook secret configured");
       return new Response("Webhook secret not configured", { status: 500 });
@@ -49,22 +49,21 @@ serve(async (req) => {
           sessionId: session.id,
           deviceId,
           customerId: session.customer,
-          subscriptionId: session.subscription,
+          subscriptionId: session.subscription
         });
 
         // حفظ أو تحديث معلومات الاشتراك في الجدول
-        const { error: upsertError } = await supabaseClient.from("device_subscriptions").upsert(
-          {
+        const { error: upsertError } = await supabaseClient
+          .from("device_subscriptions")
+          .upsert({
             device_id: deviceId,
             stripe_customer_id: session.customer as string,
             stripe_subscription_id: session.subscription as string,
             status: "active",
             expires_at: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString(), // 30 أيام
-          },
-          {
-            onConflict: "device_id",
-          },
-        );
+          }, {
+            onConflict: "device_id"
+          });
 
         if (upsertError) {
           logStep("Error saving subscription", { error: upsertError });
@@ -77,10 +76,10 @@ serve(async (req) => {
       case "customer.subscription.updated":
       case "customer.subscription.deleted": {
         const subscription = event.data.object as Stripe.Subscription;
-
+        
         logStep("Processing subscription update/delete", {
           subscriptionId: subscription.id,
-          status: subscription.status,
+          status: subscription.status
         });
 
         // تحديث حالة الاشتراك
@@ -88,7 +87,7 @@ serve(async (req) => {
           .from("device_subscriptions")
           .update({
             status: subscription.status === "active" ? "active" : "inactive",
-            expires_at: new Date(subscription.current_period_end * 1000).toISOString(),
+            expires_at: new Date(subscription.current_period_end * 1000).toISOString()
           })
           .eq("stripe_subscription_id", subscription.id);
 

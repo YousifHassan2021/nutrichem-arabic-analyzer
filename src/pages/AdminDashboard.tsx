@@ -307,9 +307,6 @@ const AdminDashboard = () => {
                       {user.subscriptionSource === 'stripe' && (
                         <Badge variant="outline">Stripe</Badge>
                       )}
-                      {user.subscriptionSource === 'device' && (
-                        <Badge variant="outline">جهاز (Stripe)</Badge>
-                      )}
                       {!user.subscriptionSource && '-'}
                     </TableCell>
                     <TableCell>
