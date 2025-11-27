@@ -55,7 +55,11 @@ export default function LinkSubscription() {
       } else {
         toast({
           title: "خطأ",
-          description: data?.message || "حدث خطأ أثناء ربط الاشتراك",
+          description: (
+            <div className="whitespace-pre-line">
+              {data?.message || "حدث خطأ أثناء ربط الاشتراك"}
+            </div>
+          ),
           variant: "destructive",
         });
       }
@@ -63,7 +67,11 @@ export default function LinkSubscription() {
       console.error("Error linking subscription:", error);
       toast({
         title: "خطأ",
-        description: "حدث خطأ أثناء ربط الاشتراك",
+        description: (
+          <div className="whitespace-pre-line">
+            {error instanceof Error ? error.message : "حدث خطأ أثناء ربط الاشتراك"}
+          </div>
+        ),
         variant: "destructive",
       });
     } finally {
@@ -79,8 +87,11 @@ export default function LinkSubscription() {
             <LinkIcon className="w-6 h-6 text-primary" />
           </div>
           <CardTitle className="text-2xl">ربط الاشتراك</CardTitle>
-          <CardDescription>
-            أدخل البريد الإلكتروني المستخدم في عملية الدفع لربط اشتراكك بهذا الجهاز
+          <CardDescription className="text-center space-y-2">
+            <p>أدخل البريد الإلكتروني المستخدم في عملية الدفع لربط اشتراكك بهذا الجهاز</p>
+            <p className="text-xs text-muted-foreground">
+              ⚠️ تأكد من استخدام نفس البريد المستخدم عند الدفع في Stripe
+            </p>
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
