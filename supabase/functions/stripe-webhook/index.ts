@@ -8,6 +8,11 @@ const logStep = (step: string, details?: any) => {
 };
 
 serve(async (req) => {
+  logStep("Webhook request received", { 
+    method: req.method,
+    hasSignature: !!req.headers.get("stripe-signature")
+  });
+
   const stripe = new Stripe(Deno.env.get("STRIPE_SECRET_KEY") || "", {
     apiVersion: "2025-08-27.basil",
   });
@@ -19,56 +24,87 @@ serve(async (req) => {
 
   const signature = req.headers.get("stripe-signature");
   if (!signature) {
-    logStep("No signature found");
+    logStep("ERROR: No signature found in request");
     return new Response("No signature", { status: 400 });
   }
 
   try {
     const body = await req.text();
+    logStep("Request body received", { bodyLength: body.length });
+    
     const webhookSecret = Deno.env.get("STRIPE_WEBHOOK_SECRET");
     
     if (!webhookSecret) {
-      logStep("ERROR: No webhook secret configured");
+      logStep("ERROR: No webhook secret configured in environment");
       return new Response("Webhook secret not configured", { status: 500 });
     }
 
+    logStep("Constructing webhook event");
     const event = stripe.webhooks.constructEvent(body, signature, webhookSecret);
-    logStep("Event received", { type: event.type });
+    logStep("Event constructed successfully", { type: event.type, id: event.id });
 
     switch (event.type) {
       case "checkout.session.completed": {
         const session = event.data.object as Stripe.Checkout.Session;
         const deviceId = session.metadata?.device_id;
 
-        if (!deviceId) {
-          logStep("No device_id in session metadata");
-          break;
-        }
-
-        logStep("Processing checkout completion", {
+        logStep("Processing checkout.session.completed", {
           sessionId: session.id,
           deviceId,
           customerId: session.customer,
-          subscriptionId: session.subscription
+          subscriptionId: session.subscription,
+          hasMetadata: !!session.metadata,
+          metadata: session.metadata
+        });
+
+        if (!deviceId) {
+          logStep("WARNING: No device_id in session metadata, cannot link subscription");
+          break;
+        }
+
+        if (!session.subscription) {
+          logStep("WARNING: No subscription ID in session, skipping");
+          break;
+        }
+
+        // Get subscription details from Stripe to get accurate expiration
+        logStep("Fetching subscription details from Stripe");
+        const subscription = await stripe.subscriptions.retrieve(session.subscription as string);
+        
+        const expiresAt = subscription.current_period_end
+          ? new Date(subscription.current_period_end * 1000).toISOString()
+          : new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString();
+
+        logStep("Subscription details retrieved", {
+          subscriptionId: subscription.id,
+          status: subscription.status,
+          currentPeriodEnd: subscription.current_period_end,
+          expiresAt
         });
 
         // حفظ أو تحديث معلومات الاشتراك في الجدول
-        const { error: upsertError } = await supabaseClient
+        const { data: insertedData, error: upsertError } = await supabaseClient
           .from("device_subscriptions")
           .upsert({
             device_id: deviceId,
             stripe_customer_id: session.customer as string,
             stripe_subscription_id: session.subscription as string,
-            status: "active",
-            expires_at: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString(), // 30 أيام
+            status: subscription.status,
+            expires_at: expiresAt,
           }, {
             onConflict: "device_id"
-          });
+          })
+          .select();
 
         if (upsertError) {
-          logStep("Error saving subscription", { error: upsertError });
+          logStep("ERROR saving subscription to database", { 
+            error: upsertError.message,
+            details: upsertError 
+          });
         } else {
-          logStep("Subscription saved successfully");
+          logStep("Subscription saved successfully to database", { 
+            data: insertedData 
+          });
         }
         break;
       }
