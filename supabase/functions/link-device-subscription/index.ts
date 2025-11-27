@@ -26,8 +26,12 @@ serve(async (req) => {
   try {
     logStep("Function started");
 
-    const { deviceId, email } = await req.json();
-    logStep("Request received", { deviceId, email });
+    const { deviceId, email: rawEmail } = await req.json();
+    
+    // Normalize email: trim and lowercase
+    const email = rawEmail?.trim().toLowerCase();
+    
+    logStep("Request received", { deviceId, email, rawEmail });
 
     if (!deviceId || !email) {
       throw new Error("Device ID and email are required");
@@ -38,14 +42,29 @@ serve(async (req) => {
       apiVersion: "2025-08-27.basil" 
     });
 
-    // Find customer by email
-    const customers = await stripe.customers.list({ email, limit: 1 });
+    // Find customer by email - try exact match first
+    logStep("Searching for customer in Stripe", { email });
+    let customers = await stripe.customers.list({ email, limit: 10 });
+    logStep("Stripe search results", { count: customers.data.length });
+    
+    // If no exact match, try searching all customers and filter
+    if (customers.data.length === 0) {
+      logStep("No exact match, searching all customers");
+      const allCustomers = await stripe.customers.list({ limit: 100 });
+      logStep("All customers count", { count: allCustomers.data.length });
+      
+      // Filter by email manually
+      customers.data = allCustomers.data.filter((c: Stripe.Customer) => 
+        c.email?.toLowerCase().trim() === email
+      );
+      logStep("After manual filter", { count: customers.data.length });
+    }
     
     if (customers.data.length === 0) {
-      logStep("No customer found");
+      logStep("No customer found after all attempts");
       return new Response(JSON.stringify({ 
         success: false, 
-        message: "لم يتم العثور على عميل بهذا البريد الإلكتروني" 
+        message: "لم يتم العثور على عميل بهذا البريد الإلكتروني في Stripe. تأكد من إكمال عملية الدفع أولاً." 
       }), {
         headers: { ...corsHeaders, "Content-Type": "application/json" },
         status: 404,
