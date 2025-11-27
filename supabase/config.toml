@@ -14,3 +14,6 @@ verify_jwt = true
 
 [functions.link-device-subscription]
 verify_jwt = false
+
+[functions.stripe-webhook]
+verify_jwt = false
