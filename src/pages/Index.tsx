@@ -3,7 +3,7 @@ import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { Input } from "@/components/ui/input";
 import { Card } from "@/components/ui/card";
-import { Loader2, Beaker, AlertCircle, Upload, X, ScanLine, Crown, Shield } from "lucide-react";
+import { Loader2, Beaker, AlertCircle, Upload, X, ScanLine, Crown, Shield, Download } from "lucide-react";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import AnalysisResults from "@/components/AnalysisResults";
@@ -229,11 +229,21 @@ const Index = () => {
               </div>
             </div>
             <div className="flex items-center gap-3">
+              <Button 
+                variant="outline" 
+                onClick={() => navigate("/install")}
+                className="gap-2"
+                size="sm"
+              >
+                <Download className="h-4 w-4" />
+                <span className="hidden sm:inline">تثبيت</span>
+              </Button>
               {isAdmin && (
                 <Button 
                   variant="outline" 
                   onClick={() => navigate("/admin")}
                   className="gap-2"
+                  size="sm"
                 >
                   <Shield className="h-4 w-4" />
                   <span className="hidden md:inline">لوحة الأدمن</span>
