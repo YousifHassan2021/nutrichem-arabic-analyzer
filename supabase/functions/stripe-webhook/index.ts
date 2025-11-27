@@ -25,7 +25,7 @@ serve(async (req) => {
 
   try {
     const body = await req.text();
-    const webhookSecret = Deno.env.get("Swhsec_3HWTDmUDb9HcLbApEzwvXK5mlVOD7sRT");
+    const webhookSecret = Deno.env.get("STRIPE_WEBHOOK_SECRET");
 
     if (!webhookSecret) {
       logStep("ERROR: No webhook secret configured");
