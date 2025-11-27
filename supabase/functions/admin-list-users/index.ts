@@ -70,6 +70,7 @@ serve(async (req) => {
       apiVersion: "2025-08-27.basil" 
     });
 
+    // Build status for authenticated users
     const usersWithStatus = await Promise.all(
       allUsers.users.map(async (user) => {
         let subscriptionStatus = 'none';
@@ -78,8 +79,8 @@ serve(async (req) => {
         let subscriptionId = null;
 
         // Check manual subscription
-        const manualSub = manualSubs?.find(sub => sub.user_id === user.id);
-        if (manualSub && manualSub.status === 'active') {
+        const manualSub = manualSubs?.find((sub) => sub.user_id === user.id);
+        if (manualSub && manualSub.status === 'active' && manualSub.expires_at) {
           const expiry = new Date(manualSub.expires_at);
           if (expiry > new Date()) {
             subscriptionStatus = 'active';
@@ -100,9 +101,11 @@ serve(async (req) => {
                 limit: 1,
               });
               if (subscriptions.data.length > 0) {
+                const subscription = subscriptions.data[0];
                 subscriptionStatus = 'active';
                 subscriptionSource = 'stripe';
-                expiresAt = new Date(subscriptions.data[0].current_period_end * 1000).toISOString();
+                expiresAt = new Date(subscription.current_period_end * 1000).toISOString();
+                subscriptionId = subscription.id;
               }
             }
           } catch (error) {
@@ -117,27 +120,92 @@ serve(async (req) => {
           subscriptionStatus,
           subscriptionSource,
           expiresAt,
-          subscriptionId
+          subscriptionId,
         };
       })
     );
 
     // Add manual subscriptions without user_id (pending registrations)
-    const pendingManualSubs = manualSubs?.filter(sub => !sub.user_id && sub.status === 'active') || [];
-    const pendingUsers = pendingManualSubs.map(sub => {
-      const expiry = new Date(sub.expires_at);
+    const pendingManualSubs =
+      manualSubs?.filter((sub) => !sub.user_id && sub.status === 'active') || [];
+    const pendingUsers = pendingManualSubs.map((sub) => {
+      const expiry = sub.expires_at ? new Date(sub.expires_at) : null;
+      const isActive = expiry ? expiry > new Date() : true;
+
       return {
         id: sub.id,
         email: sub.user_email,
         created_at: sub.created_at,
-        subscriptionStatus: expiry > new Date() ? 'active' : 'none',
+        subscriptionStatus: isActive ? 'active' : 'none',
         subscriptionSource: 'manual',
         expiresAt: sub.expires_at,
-        subscriptionId: sub.id
+        subscriptionId: sub.id,
       };
     });
 
-    const allUsersWithStatus = [...usersWithStatus, ...pendingUsers];
+    // Include device-based subscriptions (Stripe or manual linked to devices)
+    const { data: deviceSubs, error: deviceSubsError } = await supabaseClient
+      .from('device_subscriptions')
+      .select('*');
+
+    if (deviceSubsError) {
+      logStep("Error fetching device subscriptions", { error: deviceSubsError });
+    }
+
+    const deviceUsers = deviceSubs
+      ? await Promise.all(
+          deviceSubs.map(async (sub) => {
+            let email = null;
+            let expiresAt = sub.expires_at;
+            let subscriptionStatus = sub.status === 'active' ? 'active' : 'none';
+            let subscriptionSource = 'device';
+            let subscriptionId = sub.stripe_subscription_id || sub.id;
+
+            // Refresh expiry from Stripe if we have a Stripe subscription id
+            if (sub.stripe_subscription_id) {
+              try {
+                const subscription = await stripe.subscriptions.retrieve(
+                  sub.stripe_subscription_id,
+                );
+                expiresAt = new Date(subscription.current_period_end * 1000).toISOString();
+                subscriptionStatus = subscription.status === 'active' ? 'active' : 'none';
+              } catch (error) {
+                logStep("Error fetching Stripe subscription for device", {
+                  subscriptionId: sub.stripe_subscription_id,
+                  error,
+                });
+              }
+            }
+
+            // Try to get email from Stripe customer
+            if (sub.stripe_customer_id) {
+              try {
+                const customer = await stripe.customers.retrieve(sub.stripe_customer_id);
+                if (!('deleted' in customer) && customer.email) {
+                  email = customer.email;
+                }
+              } catch (error) {
+                logStep("Error fetching Stripe customer for device", {
+                  customerId: sub.stripe_customer_id,
+                  error,
+                });
+              }
+            }
+
+            return {
+              id: sub.device_id,
+              email,
+              created_at: sub.created_at,
+              subscriptionStatus,
+              subscriptionSource,
+              expiresAt,
+              subscriptionId,
+            };
+          }),
+        )
+      : [];
+
+    const allUsersWithStatus = [...usersWithStatus, ...pendingUsers, ...deviceUsers];
     logStep("Users fetched", { count: allUsersWithStatus.length });
 
     return new Response(JSON.stringify({ 
