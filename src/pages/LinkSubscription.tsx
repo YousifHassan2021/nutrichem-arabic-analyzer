@@ -35,17 +35,24 @@ export default function LinkSubscription() {
     setIsLoading(true);
     try {
       const deviceId = getDeviceId();
+      console.log("[LINK-SUB] Starting link process", { deviceId, email: email.trim().toLowerCase() });
       
       const { data, error } = await supabase.functions.invoke("link-device-subscription", {
         body: { deviceId, email: email.trim().toLowerCase() },
       });
 
-      if (error) throw error;
+      console.log("[LINK-SUB] Response received", { data, error });
+
+      if (error) {
+        console.error("[LINK-SUB] Error from function", error);
+        throw error;
+      }
 
       if (data?.success) {
+        console.log("[LINK-SUB] Success!", data);
         toast({
           title: "تم بنجاح!",
-          description: data.message,
+          description: data.message || "تم ربط الاشتراك بنجاح!",
         });
         
         // Redirect to home after 2 seconds
@@ -53,6 +60,7 @@ export default function LinkSubscription() {
           navigate("/");
         }, 2000);
       } else {
+        console.error("[LINK-SUB] Failed", data);
         toast({
           title: "خطأ",
           description: data?.message || "حدث خطأ أثناء ربط الاشتراك",
@@ -60,10 +68,10 @@ export default function LinkSubscription() {
         });
       }
     } catch (error) {
-      console.error("Error linking subscription:", error);
+      console.error("[LINK-SUB] Exception caught:", error);
       toast({
         title: "خطأ",
-        description: "حدث خطأ أثناء ربط الاشتراك",
+        description: error instanceof Error ? error.message : "حدث خطأ أثناء ربط الاشتراك",
         variant: "destructive",
       });
     } finally {
