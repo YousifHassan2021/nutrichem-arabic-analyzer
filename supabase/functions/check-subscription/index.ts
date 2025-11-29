@@ -47,10 +47,31 @@ serve(async (req) => {
     }
 
     if (deviceSub) {
+      // Calculate expiry as 3 months from subscription creation
+      const createdDate = new Date(deviceSub.created_at);
+      const expiryDate = new Date(createdDate);
+      expiryDate.setMonth(expiryDate.getMonth() + 3);
+      const subscriptionEnd = expiryDate.toISOString();
+      
+      // Check if subscription is still active based on expiry
+      const now = new Date();
+      const isExpired = expiryDate <= now;
+      
       logStep("Active device subscription found", { 
         subscriptionId: deviceSub.stripe_subscription_id,
-        expiresAt: deviceSub.expires_at 
+        createdAt: deviceSub.created_at,
+        calculatedExpiresAt: subscriptionEnd,
+        isExpired
       });
+
+      // If expired, return not subscribed
+      if (isExpired) {
+        logStep("Device subscription has expired");
+        return new Response(JSON.stringify({ subscribed: false }), {
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+          status: 200,
+        });
+      }
 
       // Get product_id from Stripe
       const stripe = new Stripe(Deno.env.get("STRIPE_SECRET_KEY") || "", { 
@@ -72,7 +93,7 @@ serve(async (req) => {
       return new Response(JSON.stringify({
         subscribed: true,
         product_id: productId,
-        subscription_end: deviceSub.expires_at
+        subscription_end: subscriptionEnd
       }), {
         headers: { ...corsHeaders, "Content-Type": "application/json" },
         status: 200,
