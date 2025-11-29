@@ -152,10 +152,10 @@ const Pricing = () => {
         <div className="grid md:grid-cols-1 gap-8 max-w-md mx-auto">
           <Card className={`p-8 ${subscribed ? "border-accent shadow-lg" : ""}`}>
             <div className="text-center mb-6">
-              <h3 className="text-2xl font-bold mb-2">الاشتراك الشهري</h3>
+              <h3 className="text-2xl font-bold mb-2">الاشتراك ربع السنوي</h3>
               <div className="flex items-center justify-center gap-2 mb-4">
-                <span className="text-4xl font-bold">10</span>
-                <span className="text-xl text-muted-foreground">ريال / شهر</span>
+                <span className="text-4xl font-bold">12</span>
+                <span className="text-xl text-muted-foreground">ريال / 3 أشهر</span>
               </div>
               <p className="text-muted-foreground">
                 وصول غير محدود لتحليل المكونات
