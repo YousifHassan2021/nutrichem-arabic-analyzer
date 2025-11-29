@@ -331,7 +331,14 @@ const AdminDashboard = () => {
                     </TableCell>
                     <TableCell>
                       {user.subscriptionSource === 'stripe' && user.subscriptionStatus === 'active' && (
-                        <Badge variant="secondary">نشط</Badge>
+                        <div className="flex gap-2">
+                          <Badge variant="secondary">Stripe - نشط</Badge>
+                        </div>
+                      )}
+                      {user.subscriptionSource === 'device' && user.subscriptionStatus === 'active' && (
+                        <div className="flex gap-2">
+                          <Badge variant="secondary">جهاز - نشط</Badge>
+                        </div>
                       )}
                       {user.subscriptionSource === 'manual' && user.subscriptionId && (
                         <div className="flex gap-2">

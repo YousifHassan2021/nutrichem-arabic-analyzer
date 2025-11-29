@@ -169,11 +169,24 @@ serve(async (req) => {
                 );
                 expiresAt = new Date(subscription.current_period_end * 1000).toISOString();
                 subscriptionStatus = subscription.status === 'active' ? 'active' : 'none';
+                subscriptionSource = 'stripe';
+                logStep("Successfully fetched Stripe subscription for device", {
+                  subscriptionId: sub.stripe_subscription_id,
+                  expiresAt,
+                  status: subscription.status
+                });
               } catch (error) {
                 logStep("Error fetching Stripe subscription for device", {
                   subscriptionId: sub.stripe_subscription_id,
-                  error,
+                  error: error instanceof Error ? error.message : String(error),
                 });
+                // If we can't fetch from Stripe, assume it's active and show as ongoing
+                if (sub.status === 'active') {
+                  subscriptionSource = 'stripe';
+                  subscriptionStatus = 'active';
+                  // For Stripe subscriptions without expiry data, set a far future date
+                  expiresAt = new Date(Date.now() + 365 * 24 * 60 * 60 * 1000).toISOString();
+                }
               }
             }
 
