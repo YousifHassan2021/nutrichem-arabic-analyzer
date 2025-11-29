@@ -156,37 +156,42 @@ serve(async (req) => {
       ? await Promise.all(
           deviceSubs.map(async (sub) => {
             let email = null;
-            let expiresAt = sub.expires_at;
-            let subscriptionStatus = sub.status === 'active' ? 'active' : 'none';
+            // Calculate expiry as 3 months from subscription creation
+            const createdDate = new Date(sub.created_at);
+            const expiryDate = new Date(createdDate);
+            expiryDate.setMonth(expiryDate.getMonth() + 3);
+            let expiresAt = expiryDate.toISOString();
+            
+            // Check if subscription is still active based on expiry
+            const now = new Date();
+            let subscriptionStatus = expiryDate > now && sub.status === 'active' ? 'active' : 'expired';
             let subscriptionSource = 'device';
             let subscriptionId = sub.stripe_subscription_id || sub.id;
 
-            // Refresh expiry from Stripe if we have a Stripe subscription id
+            // Keep the calculated 3-month expiry, but verify status with Stripe
             if (sub.stripe_subscription_id) {
               try {
                 const subscription = await stripe.subscriptions.retrieve(
                   sub.stripe_subscription_id,
                 );
-                expiresAt = new Date(subscription.current_period_end * 1000).toISOString();
-                subscriptionStatus = subscription.status === 'active' ? 'active' : 'none';
+                // If Stripe says it's canceled or inactive, update status
+                if (subscription.status !== 'active') {
+                  subscriptionStatus = 'expired';
+                }
                 subscriptionSource = 'stripe';
-                logStep("Successfully fetched Stripe subscription for device", {
+                logStep("Successfully verified Stripe subscription for device", {
                   subscriptionId: sub.stripe_subscription_id,
                   expiresAt,
-                  status: subscription.status
+                  stripeStatus: subscription.status,
+                  finalStatus: subscriptionStatus
                 });
               } catch (error) {
                 logStep("Error fetching Stripe subscription for device", {
                   subscriptionId: sub.stripe_subscription_id,
                   error: error instanceof Error ? error.message : String(error),
                 });
-                // If we can't fetch from Stripe, assume it's active and show as ongoing
-                if (sub.status === 'active') {
-                  subscriptionSource = 'stripe';
-                  subscriptionStatus = 'active';
-                  // For Stripe subscriptions without expiry data, set a far future date
-                  expiresAt = new Date(Date.now() + 365 * 24 * 60 * 60 * 1000).toISOString();
-                }
+                // Keep the calculated expiry and status
+                subscriptionSource = 'stripe';
               }
             }
 
