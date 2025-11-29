@@ -286,8 +286,8 @@ const AdminDashboard = () => {
                   <TableHead className="text-right">البريد الإلكتروني</TableHead>
                   <TableHead className="text-right">حالة الاشتراك</TableHead>
                   <TableHead className="text-right">مصدر الاشتراك</TableHead>
+                  <TableHead className="text-right">تاريخ البداية</TableHead>
                   <TableHead className="text-right">تاريخ الانتهاء</TableHead>
-                  <TableHead className="text-right">تاريخ التسجيل</TableHead>
                   <TableHead className="text-right">الإجراءات</TableHead>
                 </TableRow>
               </TableHeader>
@@ -310,15 +310,29 @@ const AdminDashboard = () => {
                       {!user.subscriptionSource && '-'}
                     </TableCell>
                     <TableCell>
-                      {user.expiresAt 
-                        ? new Date(user.expiresAt).toLocaleDateString('ar-SA')
+                      {user.created_at 
+                        ? new Date(user.created_at).toLocaleDateString('ar-SA', {
+                            year: 'numeric',
+                            month: 'long',
+                            day: 'numeric'
+                          })
                         : '-'
                       }
                     </TableCell>
                     <TableCell>
-                      {new Date(user.created_at).toLocaleDateString('ar-SA')}
+                      {user.expiresAt 
+                        ? new Date(user.expiresAt).toLocaleDateString('ar-SA', {
+                            year: 'numeric',
+                            month: 'long',
+                            day: 'numeric'
+                          })
+                        : '-'
+                      }
                     </TableCell>
                     <TableCell>
+                      {user.subscriptionSource === 'stripe' && user.subscriptionStatus === 'active' && (
+                        <Badge variant="secondary">نشط</Badge>
+                      )}
                       {user.subscriptionSource === 'manual' && user.subscriptionId && (
                         <div className="flex gap-2">
                           <Button
@@ -346,7 +360,7 @@ const AdminDashboard = () => {
                           </Button>
                         </div>
                       )}
-                      {user.subscriptionSource !== 'manual' && '-'}
+                      {!user.subscriptionSource && '-'}
                     </TableCell>
                   </TableRow>
                 ))}
