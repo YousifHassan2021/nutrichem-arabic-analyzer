@@ -10,7 +10,6 @@ import {
   ScanFace,
 } from "lucide-react";
 import { Separator } from "@/components/ui/separator";
-import { NanoVisualization } from "@/components/visualization/NanoVisualization";
 import { ARView } from "@/components/ar/ARView";
 import { useState } from "react";
 import bodyEffectsImage from "@/assets/body-effects-visualization.jpg";
@@ -170,23 +169,6 @@ const AnalysisResults = ({ result, onReset }: AnalysisResultsProps) => {
         </Card>
       )}
 
-      {/* Nano Visualization */}
-      {(result.negativeIngredients?.length > 0 || result.positiveIngredients?.length > 0) && (
-        <Card className="p-6">
-          <div className="space-y-4">
-            <h3 className="text-xl font-semibold text-foreground">التصور النانوي التفاعلي</h3>
-            <p className="text-sm text-muted-foreground">
-              استكشف كيف تؤثر المكونات على جسمك. انقر على أي عضو لعرض التفاصيل.
-            </p>
-            <Separator />
-            <NanoVisualization 
-              negativeIngredients={result.negativeIngredients || []}
-              positiveIngredients={result.positiveIngredients || []}
-              suspiciousIngredients={result.suspiciousIngredients || []}
-            />
-          </div>
-        </Card>
-      )}
 
       {/* Negative Ingredients */}
       {result.negativeIngredients && result.negativeIngredients.length > 0 && (
