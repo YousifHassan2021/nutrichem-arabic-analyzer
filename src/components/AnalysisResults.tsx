@@ -7,9 +7,12 @@ import {
   HelpCircle,
   ArrowRight,
   RotateCcw,
+  ScanFace,
 } from "lucide-react";
 import { Separator } from "@/components/ui/separator";
 import { NanoVisualization } from "@/components/visualization/NanoVisualization";
+import { ARView } from "@/components/ar/ARView";
+import { useState } from "react";
 
 interface AnalysisResult {
   productName: string;
@@ -45,6 +48,8 @@ interface AnalysisResultsProps {
 }
 
 const AnalysisResults = ({ result, onReset }: AnalysisResultsProps) => {
+  const [showAR, setShowAR] = useState(false);
+  
   const getScoreColor = (score: number) => {
     if (score >= 80) return "text-success";
     if (score >= 60) return "text-primary";
@@ -104,8 +109,33 @@ const AnalysisResults = ({ result, onReset }: AnalysisResultsProps) => {
             </div>
           </div>
           <p className="text-base text-foreground/90 leading-relaxed">{result.summary}</p>
+          
+          {/* AR Button */}
+          <div className="pt-4">
+            <Button
+              onClick={() => setShowAR(true)}
+              className="w-full bg-gradient-to-r from-primary to-primary/80 hover:from-primary/90 hover:to-primary/70"
+              size="lg"
+            >
+              <ScanFace className="ml-2 h-5 w-5" />
+              عرض التأثيرات بتقنية الواقع المعزز
+            </Button>
+            <p className="text-xs text-muted-foreground text-center mt-2">
+              شاهد كيف تؤثر المكونات على جسمك باستخدام الكاميرا
+            </p>
+          </div>
         </div>
       </Card>
+
+      {/* AR View */}
+      {showAR && (
+        <ARView
+          negativeIngredients={result.negativeIngredients || []}
+          positiveIngredients={result.positiveIngredients || []}
+          suspiciousIngredients={result.suspiciousIngredients || []}
+          onClose={() => setShowAR(false)}
+        />
+      )}
 
       {/* Nano Visualization */}
       {(result.negativeIngredients?.length > 0 || result.positiveIngredients?.length > 0) && (
