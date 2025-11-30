@@ -24,6 +24,13 @@ const Pricing = () => {
   const [isLoading, setIsLoading] = useState(false);
   const [isManaging, setIsManaging] = useState(false);
 
+  // إعادة توجيه المشتركين للصفحة الرئيسية
+  useEffect(() => {
+    if (subscribed) {
+      navigate("/");
+    }
+  }, [subscribed, navigate]);
+
   const handleSubscribe = async () => {
     setIsLoading(true);
     try {
@@ -105,50 +112,6 @@ const Pricing = () => {
           </p>
         </div>
 
-        {subscribed && (
-          <Card className="p-6 bg-accent/10 border-accent mb-8">
-            <div className="flex items-center gap-3 mb-4">
-              <Crown className="h-6 w-6 text-accent" />
-              <h3 className="font-semibold text-lg">اشتراكك النشط</h3>
-            </div>
-            <p className="text-sm text-muted-foreground mb-4">
-              اشتراكك نشط حالياً على هذا الجهاز ويستمر حتى:{" "}
-              {subscriptionEnd ? new Date(subscriptionEnd).toLocaleDateString("ar-SA") : "غير محدد"}
-            </p>
-            <div className="flex gap-3">
-              <Button
-                onClick={handleManageSubscription}
-                disabled={isManaging}
-                variant="outline"
-              >
-                {isManaging ? (
-                  <>
-                    <Loader2 className="ml-2 h-4 w-4 animate-spin" />
-                    جاري التحميل...
-                  </>
-                ) : (
-                  "إدارة الاشتراك"
-                )}
-              </Button>
-              <Button
-                onClick={checkSubscription}
-                disabled={checkingSubscription}
-                variant="ghost"
-              >
-                {checkingSubscription ? (
-                  <>
-                    <Loader2 className="ml-2 h-4 w-4 animate-spin" />
-                    جاري التحقق...
-                  </>
-                ) : (
-                  "تحديث حالة الاشتراك"
-                )}
-              </Button>
-            </div>
-          </Card>
-        )}
-
-
         <div className="grid md:grid-cols-1 gap-8 max-w-md mx-auto">
           <Card className={`p-8 ${subscribed ? "border-accent shadow-lg" : ""}`}>
             <div className="text-center mb-6">
@@ -189,27 +152,7 @@ const Pricing = () => {
               </div>
             </div>
 
-            {subscribed ? (
-              <Button
-                onClick={handleManageSubscription}
-                disabled={isManaging}
-                className="w-full"
-                size="lg"
-              >
-                {isManaging ? (
-                  <>
-                    <Loader2 className="ml-2 h-5 w-5 animate-spin" />
-                    جاري التحميل...
-                  </>
-                ) : (
-                  <>
-                    <Crown className="ml-2 h-5 w-5" />
-                    إدارة الاشتراك
-                  </>
-                )}
-              </Button>
-            ) : (
-              <div className="space-y-3">
+            <div className="space-y-3">
                 <Button
                   onClick={handleSubscribe}
                   disabled={isLoading}
@@ -239,7 +182,6 @@ const Pricing = () => {
                   دفعت بالفعل؟ اربط اشتراكك
                 </Button>
               </div>
-            )}
           </Card>
         </div>
 
