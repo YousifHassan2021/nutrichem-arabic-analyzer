@@ -28,9 +28,16 @@ export const NanoParticles = ({ negative, positive, targetOrgan }: NanoParticles
     skin: [0, 1.5, 0.42],
     head: [0, 2.5, 0],
     torso: [0, 1, 0],
+    heart: [0, 1.3, 0.15],
+    lungs: [0, 1.4, 0],
+    brain: [0, 2.6, 0],
+    intestines: [0, 0.7, 0.1],
   };
 
-  const particleCount = negative + positive;
+  // Optimize: Limit max particles for better performance
+  const maxNegative = Math.min(negative, 25);
+  const maxPositive = Math.min(positive, 20);
+  const particleCount = maxNegative + maxPositive;
   
   const particles = useMemo(() => {
     const particleArray: Particle[] = [];
@@ -38,7 +45,7 @@ export const NanoParticles = ({ negative, positive, targetOrgan }: NanoParticles
     const targetPos = organPositions[targetOrgan] || [0, 1.5, 0];
 
     for (let i = 0; i < particleCount; i++) {
-      const isNegative = i < negative;
+      const isNegative = i < maxNegative;
       const spread = 0.3;
       
       particleArray.push({
@@ -61,7 +68,7 @@ export const NanoParticles = ({ negative, positive, targetOrgan }: NanoParticles
     }
     
     return particleArray;
-  }, [negative, positive, targetOrgan]);
+  }, [maxNegative, maxPositive, targetOrgan]);
 
   const { positions, colors, sizes } = useMemo(() => {
     const positions = new Float32Array(particleCount * 3);
@@ -155,12 +162,13 @@ export const NanoParticles = ({ negative, positive, targetOrgan }: NanoParticles
         />
       </bufferGeometry>
       <pointsMaterial
-        size={0.05}
+        size={0.06}
         vertexColors
         transparent
-        opacity={0.8}
+        opacity={0.85}
         sizeAttenuation
         blending={THREE.AdditiveBlending}
+        depthWrite={false}
       />
     </points>
   );
