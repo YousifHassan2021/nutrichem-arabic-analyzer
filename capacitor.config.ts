@@ -11,7 +11,16 @@ const config: CapacitorConfig = {
   plugins: {
     CapacitorHttp: {
       enabled: true
+    },
+    Camera: {
+      iosUsesNonExemptEncryption: false
     }
+  },
+  ios: {
+    contentInset: 'automatic'
+  },
+  android: {
+    allowMixedContent: true
   }
 };
 
