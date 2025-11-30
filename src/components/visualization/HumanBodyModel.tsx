@@ -1,6 +1,6 @@
 import { useRef } from 'react';
 import { useFrame } from '@react-three/fiber';
-import { Sphere, Cylinder } from '@react-three/drei';
+import { Sphere, Cylinder, useGLTF } from '@react-three/drei';
 import * as THREE from 'three';
 
 interface OrganData {
@@ -33,6 +33,13 @@ export const HumanBodyModel = ({ affectedOrgans, onOrganClick }: HumanBodyModelP
       affected: affectedOrgans.includes('head'),
       affectedBy: []
     },
+    brain: { 
+      position: [0, 2.6, 0], 
+      scale: [0.35, 0.4, 0.35], 
+      name: 'الدماغ',
+      affected: affectedOrgans.includes('brain'),
+      affectedBy: []
+    },
     face: { 
       position: [0, 2.3, 0.3], 
       scale: [0.4, 0.5, 0.2], 
@@ -45,6 +52,20 @@ export const HumanBodyModel = ({ affectedOrgans, onOrganClick }: HumanBodyModelP
       scale: [0.6, 1.2, 0.4], 
       name: 'الجذع',
       affected: affectedOrgans.includes('torso'),
+      affectedBy: []
+    },
+    heart: { 
+      position: [0, 1.3, 0.15], 
+      scale: [0.2, 0.25, 0.18], 
+      name: 'القلب',
+      affected: affectedOrgans.includes('heart'),
+      affectedBy: []
+    },
+    lungs: { 
+      position: [0, 1.4, 0], 
+      scale: [0.45, 0.5, 0.3], 
+      name: 'الرئتان',
+      affected: affectedOrgans.includes('lungs'),
       affectedBy: []
     },
     liver: { 
@@ -68,6 +89,13 @@ export const HumanBodyModel = ({ affectedOrgans, onOrganClick }: HumanBodyModelP
       affected: affectedOrgans.includes('stomach'),
       affectedBy: []
     },
+    intestines: { 
+      position: [0, 0.7, 0.1], 
+      scale: [0.35, 0.4, 0.25], 
+      name: 'الأمعاء',
+      affected: affectedOrgans.includes('intestines'),
+      affectedBy: []
+    },
     skin: { 
       position: [0, 1.5, 0.42], 
       scale: [0.55, 1, 0.05], 
@@ -87,9 +115,9 @@ export const HumanBodyModel = ({ affectedOrgans, onOrganClick }: HumanBodyModelP
 
   return (
     <group ref={bodyRef}>
-      {/* Head */}
+      {/* Head - LOD optimized (16 segments instead of 32) */}
       <Sphere 
-        args={[1, 32, 32]} 
+        args={[1, 20, 20]} 
         position={organs.head.position}
         scale={organs.head.scale}
         onClick={(e) => {
@@ -106,9 +134,29 @@ export const HumanBodyModel = ({ affectedOrgans, onOrganClick }: HumanBodyModelP
         />
       </Sphere>
 
-      {/* Face overlay */}
+      {/* Brain - detailed inner organ */}
       <Sphere 
-        args={[1, 32, 32]} 
+        args={[1, 16, 16]} 
+        position={organs.brain.position}
+        scale={organs.brain.scale}
+        onClick={(e) => {
+          e.stopPropagation();
+          onOrganClick('brain', new THREE.Vector3(...organs.brain.position));
+        }}
+      >
+        <meshStandardMaterial 
+          color={getOrganColor(organs.brain.affected)}
+          emissive={getOrganEmissive(organs.brain.affected)}
+          emissiveIntensity={organs.brain.affected ? 0.7 : 0.15}
+          transparent
+          opacity={0.7}
+          roughness={0.6}
+        />
+      </Sphere>
+
+      {/* Face overlay - LOD optimized */}
+      <Sphere 
+        args={[1, 20, 20]} 
         position={organs.face.position}
         scale={organs.face.scale}
         onClick={(e) => {
@@ -125,9 +173,9 @@ export const HumanBodyModel = ({ affectedOrgans, onOrganClick }: HumanBodyModelP
         />
       </Sphere>
 
-      {/* Torso */}
+      {/* Torso - LOD optimized (16 segments) */}
       <Cylinder 
-        args={[0.6, 0.7, 2, 32]}
+        args={[0.6, 0.7, 2, 20]}
         position={organs.torso.position}
         onClick={(e) => {
           e.stopPropagation();
@@ -143,9 +191,67 @@ export const HumanBodyModel = ({ affectedOrgans, onOrganClick }: HumanBodyModelP
         />
       </Cylinder>
 
-      {/* Liver */}
+      {/* Heart - detailed */}
       <Sphere 
-        args={[1, 32, 32]} 
+        args={[1, 16, 16]} 
+        position={organs.heart.position}
+        scale={organs.heart.scale}
+        onClick={(e) => {
+          e.stopPropagation();
+          onOrganClick('heart', new THREE.Vector3(...organs.heart.position));
+        }}
+      >
+        <meshStandardMaterial 
+          color={getOrganColor(organs.heart.affected)}
+          emissive={getOrganEmissive(organs.heart.affected)}
+          emissiveIntensity={organs.heart.affected ? 0.8 : 0.2}
+          transparent
+          opacity={0.85}
+          roughness={0.5}
+        />
+      </Sphere>
+
+      {/* Lungs - detailed pair */}
+      <group>
+        <Sphere 
+          args={[1, 16, 16]} 
+          position={[organs.lungs.position[0] - 0.15, organs.lungs.position[1], organs.lungs.position[2]]}
+          scale={[organs.lungs.scale[0] * 0.4, organs.lungs.scale[1], organs.lungs.scale[2]]}
+          onClick={(e) => {
+            e.stopPropagation();
+            onOrganClick('lungs', new THREE.Vector3(...organs.lungs.position));
+          }}
+        >
+          <meshStandardMaterial 
+            color={getOrganColor(organs.lungs.affected)}
+            emissive={getOrganEmissive(organs.lungs.affected)}
+            emissiveIntensity={organs.lungs.affected ? 0.6 : 0.1}
+            transparent
+            opacity={0.75}
+          />
+        </Sphere>
+        <Sphere 
+          args={[1, 16, 16]} 
+          position={[organs.lungs.position[0] + 0.15, organs.lungs.position[1], organs.lungs.position[2]]}
+          scale={[organs.lungs.scale[0] * 0.4, organs.lungs.scale[1], organs.lungs.scale[2]]}
+          onClick={(e) => {
+            e.stopPropagation();
+            onOrganClick('lungs', new THREE.Vector3(...organs.lungs.position));
+          }}
+        >
+          <meshStandardMaterial 
+            color={getOrganColor(organs.lungs.affected)}
+            emissive={getOrganEmissive(organs.lungs.affected)}
+            emissiveIntensity={organs.lungs.affected ? 0.6 : 0.1}
+            transparent
+            opacity={0.75}
+          />
+        </Sphere>
+      </group>
+
+      {/* Liver - LOD optimized */}
+      <Sphere 
+        args={[1, 16, 16]} 
         position={organs.liver.position}
         scale={organs.liver.scale}
         onClick={(e) => {
@@ -162,10 +268,10 @@ export const HumanBodyModel = ({ affectedOrgans, onOrganClick }: HumanBodyModelP
         />
       </Sphere>
 
-      {/* Kidneys */}
+      {/* Kidneys - LOD optimized */}
       <group>
         <Sphere 
-          args={[1, 32, 32]} 
+          args={[1, 14, 14]} 
           position={organs.kidneys.position}
           scale={organs.kidneys.scale}
           onClick={(e) => {
@@ -182,7 +288,7 @@ export const HumanBodyModel = ({ affectedOrgans, onOrganClick }: HumanBodyModelP
           />
         </Sphere>
         <Sphere 
-          args={[1, 32, 32]} 
+          args={[1, 14, 14]} 
           position={[0.25, 0.8, -0.1]}
           scale={organs.kidneys.scale}
           onClick={(e) => {
@@ -200,9 +306,9 @@ export const HumanBodyModel = ({ affectedOrgans, onOrganClick }: HumanBodyModelP
         </Sphere>
       </group>
 
-      {/* Stomach */}
+      {/* Stomach - LOD optimized */}
       <Sphere 
-        args={[1, 32, 32]} 
+        args={[1, 16, 16]} 
         position={organs.stomach.position}
         scale={organs.stomach.scale}
         onClick={(e) => {
@@ -219,9 +325,27 @@ export const HumanBodyModel = ({ affectedOrgans, onOrganClick }: HumanBodyModelP
         />
       </Sphere>
 
-      {/* Skin layer */}
+      {/* Intestines - new detailed organ */}
       <Cylinder 
-        args={[0.65, 0.75, 2.1, 32]}
+        args={[0.18, 0.2, 0.5, 16]}
+        position={organs.intestines.position}
+        onClick={(e) => {
+          e.stopPropagation();
+          onOrganClick('intestines', new THREE.Vector3(...organs.intestines.position));
+        }}
+      >
+        <meshStandardMaterial 
+          color={getOrganColor(organs.intestines.affected)}
+          emissive={getOrganEmissive(organs.intestines.affected)}
+          emissiveIntensity={organs.intestines.affected ? 0.6 : 0.1}
+          transparent
+          opacity={0.8}
+        />
+      </Cylinder>
+
+      {/* Skin layer - LOD optimized */}
+      <Cylinder 
+        args={[0.65, 0.75, 2.1, 20]}
         position={organs.skin.position}
         onClick={(e) => {
           e.stopPropagation();
@@ -236,6 +360,36 @@ export const HumanBodyModel = ({ affectedOrgans, onOrganClick }: HumanBodyModelP
           opacity={0.3}
           side={THREE.DoubleSide}
         />
+      </Cylinder>
+
+      {/* Arms - improved detail with LOD */}
+      <Cylinder 
+        args={[0.1, 0.08, 0.9, 12]}
+        position={[-0.75, 1.2, 0]}
+        rotation={[0, 0, Math.PI / 4]}
+      >
+        <meshStandardMaterial color="#e0c9a6" roughness={0.7} />
+      </Cylinder>
+      <Cylinder 
+        args={[0.1, 0.08, 0.9, 12]}
+        position={[0.75, 1.2, 0]}
+        rotation={[0, 0, -Math.PI / 4]}
+      >
+        <meshStandardMaterial color="#e0c9a6" roughness={0.7} />
+      </Cylinder>
+
+      {/* Legs - improved detail with LOD */}
+      <Cylinder 
+        args={[0.12, 0.1, 1.2, 12]}
+        position={[-0.2, 0.1, 0]}
+      >
+        <meshStandardMaterial color="#e0c9a6" roughness={0.7} />
+      </Cylinder>
+      <Cylinder 
+        args={[0.12, 0.1, 1.2, 12]}
+        position={[0.2, 0.1, 0]}
+      >
+        <meshStandardMaterial color="#e0c9a6" roughness={0.7} />
       </Cylinder>
     </group>
   );
