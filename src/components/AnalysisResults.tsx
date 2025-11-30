@@ -9,6 +9,7 @@ import {
   RotateCcw,
 } from "lucide-react";
 import { Separator } from "@/components/ui/separator";
+import { NanoVisualization } from "@/components/visualization/NanoVisualization";
 
 interface AnalysisResult {
   productName: string;
@@ -21,16 +22,19 @@ interface AnalysisResult {
     description: string;
     severity: string;
     impact: string;
+    affectedOrgan?: string;
   }>;
   positiveIngredients: Array<{
     name: string;
     description: string;
     benefit: string;
+    affectedOrgan?: string;
   }>;
   suspiciousIngredients: Array<{
     name: string;
     description: string;
     concern: string;
+    affectedOrgan?: string;
   }>;
   recommendations: string[];
 }
@@ -102,6 +106,24 @@ const AnalysisResults = ({ result, onReset }: AnalysisResultsProps) => {
           <p className="text-base text-foreground/90 leading-relaxed">{result.summary}</p>
         </div>
       </Card>
+
+      {/* Nano Visualization */}
+      {(result.negativeIngredients?.length > 0 || result.positiveIngredients?.length > 0) && (
+        <Card className="p-6">
+          <div className="space-y-4">
+            <h3 className="text-xl font-semibold text-foreground">التصور النانوي التفاعلي</h3>
+            <p className="text-sm text-muted-foreground">
+              استكشف كيف تؤثر المكونات على جسمك. انقر على أي عضو لعرض التفاصيل.
+            </p>
+            <Separator />
+            <NanoVisualization 
+              negativeIngredients={result.negativeIngredients || []}
+              positiveIngredients={result.positiveIngredients || []}
+              suspiciousIngredients={result.suspiciousIngredients || []}
+            />
+          </div>
+        </Card>
+      )}
 
       {/* Negative Ingredients */}
       {result.negativeIngredients && result.negativeIngredients.length > 0 && (
