@@ -13,6 +13,7 @@ import { Separator } from "@/components/ui/separator";
 import { NanoVisualization } from "@/components/visualization/NanoVisualization";
 import { ARView } from "@/components/ar/ARView";
 import { useState } from "react";
+import bodyEffectsImage from "@/assets/body-effects-visualization.jpg";
 
 interface AnalysisResult {
   productName: string;
@@ -135,6 +136,38 @@ const AnalysisResults = ({ result, onReset }: AnalysisResultsProps) => {
           suspiciousIngredients={result.suspiciousIngredients || []}
           onClose={() => setShowAR(false)}
         />
+      )}
+
+      {/* Effects Visualization Image */}
+      {(result.negativeIngredients?.length > 0 || result.positiveIngredients?.length > 0) && (
+        <Card className="p-6 bg-gradient-to-br from-primary/5 to-background">
+          <div className="space-y-4">
+            <h3 className="text-xl font-semibold text-foreground">تأثير المكونات على الجسم</h3>
+            <p className="text-sm text-muted-foreground">
+              صورة توضيحية تُظهر كيف تؤثر المكونات السلبية والإيجابية على أعضاء جسمك المختلفة
+            </p>
+            <Separator />
+            <div className="relative rounded-lg overflow-hidden">
+              <img 
+                src={bodyEffectsImage} 
+                alt="تأثير المكونات على أعضاء الجسم" 
+                className="w-full h-auto object-contain max-h-[600px] mx-auto"
+              />
+              <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-background/90 to-transparent p-4">
+                <div className="flex items-center justify-center gap-4 text-sm">
+                  <div className="flex items-center gap-2">
+                    <div className="w-3 h-3 rounded-full bg-destructive animate-pulse"></div>
+                    <span className="text-destructive-foreground font-medium">المكونات السلبية</span>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <div className="w-3 h-3 rounded-full bg-success animate-pulse"></div>
+                    <span className="text-success-foreground font-medium">المكونات الإيجابية</span>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </Card>
       )}
 
       {/* Nano Visualization */}
