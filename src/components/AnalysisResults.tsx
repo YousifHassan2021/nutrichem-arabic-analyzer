@@ -11,6 +11,7 @@ import {
 } from "lucide-react";
 import { Separator } from "@/components/ui/separator";
 import { ARView } from "@/components/ar/ARView";
+import { FaceARView } from "@/components/ar/FaceARView";
 import { useState } from "react";
 import bodyEffectsImage from "@/assets/body-effects-visualization.jpg";
 
@@ -49,6 +50,7 @@ interface AnalysisResultsProps {
 
 const AnalysisResults = ({ result, onReset }: AnalysisResultsProps) => {
   const [showAR, setShowAR] = useState(false);
+  const [showFaceAR, setShowFaceAR] = useState(false);
   
   const getScoreColor = (score: number) => {
     if (score >= 80) return "text-success";
@@ -110,22 +112,45 @@ const AnalysisResults = ({ result, onReset }: AnalysisResultsProps) => {
           </div>
           <p className="text-base text-foreground/90 leading-relaxed">{result.summary}</p>
           
-          {/* AR Button */}
-          <div className="pt-4">
+          {/* AR Buttons */}
+          <div className="pt-4 space-y-3">
             <Button
-              onClick={() => setShowAR(true)}
+              onClick={() => setShowFaceAR(true)}
               className="w-full bg-gradient-to-r from-primary to-primary/80 hover:from-primary/90 hover:to-primary/70"
               size="lg"
             >
               <ScanFace className="ml-2 h-5 w-5" />
-              عرض التأثيرات بتقنية الواقع المعزز
+              معاينة التأثير على الوجه
             </Button>
-            <p className="text-xs text-muted-foreground text-center mt-2">
-              شاهد كيف تؤثر المكونات على جسمك باستخدام الكاميرا
+            <p className="text-xs text-muted-foreground text-center">
+              شاهد تأثيرات المنتج مباشرة على وجهك باستخدام تقنية التعرف على الوجه
+            </p>
+            
+            <Button
+              onClick={() => setShowAR(true)}
+              variant="outline"
+              className="w-full"
+              size="lg"
+            >
+              <ScanFace className="ml-2 h-5 w-5" />
+              عرض النموذج ثلاثي الأبعاد
+            </Button>
+            <p className="text-xs text-muted-foreground text-center">
+              استكشف التأثيرات على نموذج الجسم ثلاثي الأبعاد
             </p>
           </div>
         </div>
       </Card>
+
+      {/* Face AR View */}
+      {showFaceAR && (
+        <FaceARView
+          negativeIngredients={result.negativeIngredients || []}
+          positiveIngredients={result.positiveIngredients || []}
+          suspiciousIngredients={result.suspiciousIngredients || []}
+          onClose={() => setShowFaceAR(false)}
+        />
+      )}
 
       {/* AR View */}
       {showAR && (
