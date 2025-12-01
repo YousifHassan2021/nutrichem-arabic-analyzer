@@ -9,6 +9,7 @@ import {
   RotateCcw,
   ScanFace,
   Lightbulb,
+  Activity,
 } from "lucide-react";
 import { Separator } from "@/components/ui/separator";
 import { FaceARView } from "@/components/ar/FaceARView";
@@ -304,55 +305,78 @@ const AnalysisResults = ({ result, skinType, onReset }: AnalysisResultsProps) =>
 
       {/* Effects Visualization on Body Image */}
       {(result.negativeIngredients?.length > 0 || result.positiveIngredients?.length > 0) && (
-        <Card className="p-6 bg-gradient-to-br from-primary/5 to-background">
-          <div className="space-y-4">
+        <Card className="p-6 bg-gradient-to-br from-muted/30 to-background border-border/50">
+          <div className="space-y-6">
             <div className="space-y-2">
-              <h3 className="text-xl font-semibold text-foreground">تأثير المكونات على أعضاء الجسم</h3>
+              <h3 className="text-xl font-bold text-foreground flex items-center gap-2">
+                <Activity className="h-5 w-5 text-primary" />
+                تأثير المكونات على أعضاء الجسم
+              </h3>
               <p className="text-sm text-muted-foreground">
                 صورة توضيحية تُظهر المناطق المتأثرة بالمكونات السلبية والإيجابية في الجسم
               </p>
             </div>
+            
             <Separator />
             
-            {/* Colored Zones Legend */}
-            <div className="flex flex-wrap items-center justify-center gap-6 p-4 bg-muted/30 rounded-lg">
-              <div className="flex items-center gap-2">
-                <div className="w-4 h-4 rounded-full bg-destructive shadow-lg shadow-destructive/50"></div>
-                <span className="text-sm font-medium text-foreground">مكونات ضارة</span>
-              </div>
-              <div className="flex items-center gap-2">
-                <div className="w-4 h-4 rounded-full bg-warning shadow-lg shadow-warning/50"></div>
-                <span className="text-sm font-medium text-foreground">مكونات مشكوك فيها</span>
-              </div>
-              <div className="flex items-center gap-2">
-                <div className="w-4 h-4 rounded-full bg-success shadow-lg shadow-success/50"></div>
-                <span className="text-sm font-medium text-foreground">مكونات مفيدة</span>
-              </div>
-            </div>
-            
-            {/* Body Visualization with Color Overlays */}
-            <div className="relative rounded-lg overflow-hidden border border-border">
+            {/* Body Visualization */}
+            <div className="relative bg-gradient-to-br from-primary/5 to-muted/50 rounded-xl p-8 border border-border/50">
               <img 
                 src={bodyEffectsImage} 
                 alt="تأثير المكونات على أعضاء الجسم" 
-                className="w-full h-auto object-contain max-h-[700px] mx-auto"
+                className="w-full max-w-md mx-auto rounded-lg shadow-2xl"
               />
+              
+              {/* Legend - Below Image */}
+              <div className="mt-6 grid grid-cols-3 gap-3">
+                <div className="flex flex-col items-center gap-2 p-3 bg-destructive/10 rounded-lg border border-destructive/20 backdrop-blur-sm">
+                  <div className="w-4 h-4 rounded-full bg-destructive shadow-lg shadow-destructive/50"></div>
+                  <span className="text-xs font-medium text-foreground text-center">مكونات ضارة</span>
+                </div>
+                <div className="flex flex-col items-center gap-2 p-3 bg-warning/10 rounded-lg border border-warning/20 backdrop-blur-sm">
+                  <div className="w-4 h-4 rounded-full bg-warning shadow-lg shadow-warning/50"></div>
+                  <span className="text-xs font-medium text-foreground text-center">مشكوك فيها</span>
+                </div>
+                <div className="flex flex-col items-center gap-2 p-3 bg-success/10 rounded-lg border border-success/20 backdrop-blur-sm">
+                  <div className="w-4 h-4 rounded-full bg-success shadow-lg shadow-success/50"></div>
+                  <span className="text-xs font-medium text-foreground text-center">مكونات مفيدة</span>
+                </div>
+              </div>
             </div>
             
             {/* Ingredients List with Color Coding */}
-            <div className="space-y-3 mt-4">
-              <h4 className="font-semibold text-foreground">المكونات المؤثرة:</h4>
+            <div className="space-y-4">
+              <h4 className="font-bold text-foreground text-lg">قائمة المكونات المؤثرة:</h4>
               
               {result.negativeIngredients && result.negativeIngredients.length > 0 && (
                 <div className="space-y-2">
+                  <p className="text-sm font-semibold text-destructive">المكونات الضارة:</p>
                   {result.negativeIngredients.map((ing, idx) => (
-                    <div key={idx} className="flex items-start gap-3 p-3 rounded-lg bg-destructive/5 border border-destructive/20">
+                    <div key={idx} className="flex items-start gap-3 p-4 rounded-lg bg-destructive/5 border border-destructive/20 hover:bg-destructive/10 transition-colors">
                       <div className="w-3 h-3 rounded-full bg-destructive mt-1 flex-shrink-0 shadow-lg shadow-destructive/50"></div>
                       <div className="flex-1">
-                        <p className="font-medium text-foreground">{ing.name}</p>
-                        <p className="text-xs text-muted-foreground mt-1">{ing.impact}</p>
+                        <p className="font-bold text-foreground">{ing.name}</p>
+                        <p className="text-sm text-muted-foreground mt-1">{ing.impact}</p>
                         {ing.affectedOrgan && (
-                          <p className="text-xs text-destructive mt-1">العضو المتأثر: {ing.affectedOrgan}</p>
+                          <p className="text-xs text-destructive mt-1 font-medium">⚠️ العضو المتأثر: {ing.affectedOrgan}</p>
+                        )}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+              
+              {result.suspiciousIngredients && result.suspiciousIngredients.length > 0 && (
+                <div className="space-y-2">
+                  <p className="text-sm font-semibold text-warning">المكونات المشكوك فيها:</p>
+                  {result.suspiciousIngredients.map((ing, idx) => (
+                    <div key={idx} className="flex items-start gap-3 p-4 rounded-lg bg-warning/5 border border-warning/20 hover:bg-warning/10 transition-colors">
+                      <div className="w-3 h-3 rounded-full bg-warning mt-1 flex-shrink-0 shadow-lg shadow-warning/50"></div>
+                      <div className="flex-1">
+                        <p className="font-bold text-foreground">{ing.name}</p>
+                        <p className="text-sm text-muted-foreground mt-1">{ing.concern}</p>
+                        {ing.affectedOrgan && (
+                          <p className="text-xs text-warning mt-1 font-medium">⚠️ العضو المتأثر: {ing.affectedOrgan}</p>
                         )}
                       </div>
                     </div>
@@ -362,14 +386,15 @@ const AnalysisResults = ({ result, skinType, onReset }: AnalysisResultsProps) =>
               
               {result.positiveIngredients && result.positiveIngredients.length > 0 && (
                 <div className="space-y-2">
+                  <p className="text-sm font-semibold text-success">المكونات المفيدة:</p>
                   {result.positiveIngredients.map((ing, idx) => (
-                    <div key={idx} className="flex items-start gap-3 p-3 rounded-lg bg-success/5 border border-success/20">
+                    <div key={idx} className="flex items-start gap-3 p-4 rounded-lg bg-success/5 border border-success/20 hover:bg-success/10 transition-colors">
                       <div className="w-3 h-3 rounded-full bg-success mt-1 flex-shrink-0 shadow-lg shadow-success/50"></div>
                       <div className="flex-1">
-                        <p className="font-medium text-foreground">{ing.name}</p>
-                        <p className="text-xs text-muted-foreground mt-1">{ing.benefit}</p>
+                        <p className="font-bold text-foreground">{ing.name}</p>
+                        <p className="text-sm text-muted-foreground mt-1">{ing.benefit}</p>
                         {ing.affectedOrgan && (
-                          <p className="text-xs text-success mt-1">العضو المتأثر: {ing.affectedOrgan}</p>
+                          <p className="text-xs text-success mt-1 font-medium">✅ العضو المتأثر: {ing.affectedOrgan}</p>
                         )}
                       </div>
                     </div>
@@ -380,39 +405,6 @@ const AnalysisResults = ({ result, skinType, onReset }: AnalysisResultsProps) =>
           </div>
         </Card>
       )}
-
-      {/* Effects Visualization Image */}
-      {(result.negativeIngredients?.length > 0 || result.positiveIngredients?.length > 0) && (
-        <Card className="p-6 bg-gradient-to-br from-primary/5 to-background">
-          <div className="space-y-4">
-            <h3 className="text-xl font-semibold text-foreground">تأثير المكونات على الجسم</h3>
-            <p className="text-sm text-muted-foreground">
-              صورة توضيحية تُظهر كيف تؤثر المكونات السلبية والإيجابية على أعضاء جسمك المختلفة
-            </p>
-            <Separator />
-            <div className="relative rounded-lg overflow-hidden">
-              <img 
-                src={bodyEffectsImage} 
-                alt="تأثير المكونات على أعضاء الجسم" 
-                className="w-full h-auto object-contain max-h-[600px] mx-auto"
-              />
-              <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-background/90 to-transparent p-4">
-                <div className="flex items-center justify-center gap-4 text-sm">
-                  <div className="flex items-center gap-2">
-                    <div className="w-3 h-3 rounded-full bg-destructive animate-pulse"></div>
-                    <span className="text-destructive-foreground font-medium">المكونات السلبية</span>
-                  </div>
-                  <div className="flex items-center gap-2">
-                    <div className="w-3 h-3 rounded-full bg-success animate-pulse"></div>
-                    <span className="text-success-foreground font-medium">المكونات الإيجابية</span>
-                  </div>
-                </div>
-              </div>
-            </div>
-          </div>
-        </Card>
-      )}
-
 
       {/* Negative Ingredients */}
       {result.negativeIngredients && result.negativeIngredients.length > 0 && (
