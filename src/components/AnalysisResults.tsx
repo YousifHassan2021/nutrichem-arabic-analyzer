@@ -98,67 +98,80 @@ const AnalysisResults = ({ result, skinType, onReset }: AnalysisResultsProps) =>
       intestines: "intestines",
     };
 
+    const findOrganKey = (rawOrgan: string | undefined | null) => {
+      if (!rawOrgan) return undefined;
+      const normalized = rawOrgan.toLowerCase().trim();
+
+      // محاولة مطابقة الاسم الكامل أولاً
+      if (organMap[normalized]) {
+        return organMap[normalized];
+      }
+
+      // ثم البحث عن أي كلمة عضو كجزء من النص (للتعامل مع عبارات مثل "الكبد والكلى")
+      for (const [label, id] of Object.entries(organMap)) {
+        if (normalized.includes(label)) {
+          return id;
+        }
+      }
+
+      return undefined;
+    };
+
     // معالجة المكونات السلبية
     result.negativeIngredients?.forEach((ing) => {
-      if (ing.affectedOrgan) {
-        const organKey = organMap[ing.affectedOrgan.toLowerCase().trim()];
-        if (organKey) {
-          const existing = organs.find((o) => o.id === organKey);
-          if (existing) {
-            existing.ingredients.push(ing.name);
-            if (existing.severity !== "severe") {
-              existing.severity = ing.severity === "خطر" || ing.severity === "عالي" ? "severe" : "moderate";
-            }
-          } else {
-            organs.push({
-              id: organKey,
-              severity: ing.severity === "خطر" || ing.severity === "عالي" ? "severe" : "moderate",
-              ingredients: [ing.name],
-              description: `تأثير ضار: ${ing.impact}`,
-            });
+      const organKey = findOrganKey(ing.affectedOrgan);
+      if (organKey) {
+        const existing = organs.find((o) => o.id === organKey);
+        if (existing) {
+          existing.ingredients.push(ing.name);
+          if (existing.severity !== "severe") {
+            existing.severity = ing.severity === "خطر" || ing.severity === "عالي" ? "severe" : "moderate";
           }
+        } else {
+          organs.push({
+            id: organKey,
+            severity: ing.severity === "خطر" || ing.severity === "عالي" ? "severe" : "moderate",
+            ingredients: [ing.name],
+            description: `تأثير ضار: ${ing.impact}`,
+          });
         }
       }
     });
 
     // معالجة المكونات المشكوك فيها
     result.suspiciousIngredients?.forEach((ing) => {
-      if (ing.affectedOrgan) {
-        const organKey = organMap[ing.affectedOrgan.toLowerCase().trim()];
-        if (organKey) {
-          const existing = organs.find((o) => o.id === organKey);
-          if (existing) {
-            existing.ingredients.push(ing.name);
-          } else {
-            organs.push({
-              id: organKey,
-              severity: "moderate",
-              ingredients: [ing.name],
-              description: `مكون مشكوك فيه: ${ing.concern}`,
-            });
-          }
+      const organKey = findOrganKey(ing.affectedOrgan);
+      if (organKey) {
+        const existing = organs.find((o) => o.id === organKey);
+        if (existing) {
+          existing.ingredients.push(ing.name);
+        } else {
+          organs.push({
+            id: organKey,
+            severity: "moderate",
+            ingredients: [ing.name],
+            description: `مكون مشكوك فيه: ${ing.concern}`,
+          });
         }
       }
     });
 
     // معالجة المكونات الإيجابية
     result.positiveIngredients?.forEach((ing) => {
-      if (ing.affectedOrgan) {
-        const organKey = organMap[ing.affectedOrgan.toLowerCase().trim()];
-        if (organKey) {
-          const existing = organs.find((o) => o.id === organKey);
-          if (existing && existing.severity !== "severe" && existing.severity !== "moderate") {
-            existing.ingredients.push(ing.name);
-            existing.severity = "safe";
-            existing.description = `تأثير إيجابي: ${ing.benefit}`;
-          } else if (!existing) {
-            organs.push({
-              id: organKey,
-              severity: "safe",
-              ingredients: [ing.name],
-              description: `تأثير إيجابي: ${ing.benefit}`,
-            });
-          }
+      const organKey = findOrganKey(ing.affectedOrgan);
+      if (organKey) {
+        const existing = organs.find((o) => o.id === organKey);
+        if (existing && existing.severity !== "severe" && existing.severity !== "moderate") {
+          existing.ingredients.push(ing.name);
+          existing.severity = "safe";
+          existing.description = `تأثير إيجابي: ${ing.benefit}`;
+        } else if (!existing) {
+          organs.push({
+            id: organKey,
+            severity: "safe",
+            ingredients: [ing.name],
+            description: `تأثير إيجابي: ${ing.benefit}`,
+          });
         }
       }
     });
