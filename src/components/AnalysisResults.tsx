@@ -9,6 +9,7 @@ import {
   RotateCcw,
   ScanFace,
   Sparkles,
+  Lightbulb,
 } from "lucide-react";
 import { Separator } from "@/components/ui/separator";
 import { ARView } from "@/components/ar/ARView";
@@ -94,6 +95,80 @@ const AnalysisResults = ({ result, onReset }: AnalysisResultsProps) => {
     );
   };
 
+  const getPersonalizedRecommendations = () => {
+    if (!skinType) return [];
+
+    const recommendations: string[] = [];
+    const negativeIngredients = result.negativeIngredients || [];
+    const positiveIngredients = result.positiveIngredients || [];
+
+    // توصيات عامة حسب نوع البشرة
+    const skinTypeAdvice: Record<string, string[]> = {
+      dry: [
+        'ابحث عن منتجات تحتوي على مواد مرطبة مثل حمض الهيالورونيك والجلسرين',
+        'تجنب المنتجات التي تحتوي على الكحول أو العطور القوية',
+        'استخدم المنتجات الغنية بالزيوت الطبيعية والسيراميد'
+      ],
+      oily: [
+        'اختر منتجات خفيفة غير دهنية ومتوازنة',
+        'ابحث عن مكونات مثل حمض الساليسيليك والنياسيناميد',
+        'تجنب المنتجات الثقيلة جداً أو الزيتية'
+      ],
+      combination: [
+        'استخدم منتجات متوازنة تناسب المناطق المختلفة من وجهك',
+        'ركز على الترطيب الخفيف في المناطق الجافة',
+        'استخدم منتجات تحكم الدهون لمنطقة T'
+      ],
+      sensitive: [
+        'تجنب المنتجات التي تحتوي على عطور أو مواد مهيجة',
+        'ابحث عن منتجات مضادة للحساسية ومختبرة طبياً',
+        'اختر مكونات مهدئة مثل الصبار والبانثينول'
+      ],
+      normal: [
+        'حافظ على روتين عناية منتظم',
+        'استخدم منتجات متوازنة للحفاظ على صحة بشرتك',
+        'ركز على الوقاية والحماية من العوامل الخارجية'
+      ]
+    };
+
+    // إضافة التوصيات العامة
+    recommendations.push(...(skinTypeAdvice[skinType] || []));
+
+    // توصيات بناءً على المكونات السلبية
+    if (negativeIngredients.length > 0) {
+      negativeIngredients.slice(0, 3).forEach(ing => {
+        const lowerName = ing.name.toLowerCase();
+        if (skinType === 'dry' && (lowerName.includes('كحول') || lowerName.includes('alcohol'))) {
+          recommendations.push(`⚠️ يحتوي على ${ing.name} الذي يزيد من جفاف بشرتك - تجنب هذا المنتج`);
+        }
+        if (skinType === 'oily' && (lowerName.includes('زيت') || lowerName.includes('oil'))) {
+          recommendations.push(`⚠️ يحتوي على ${ing.name} الذي قد يزيد من دهنية بشرتك`);
+        }
+        if (skinType === 'sensitive' && (lowerName.includes('عطر') || lowerName.includes('fragrance') || lowerName.includes('parfum'))) {
+          recommendations.push(`⚠️ يحتوي على ${ing.name} الذي قد يسبب تهيج لبشرتك الحساسة`);
+        }
+      });
+    }
+
+    // توصيات بناءً على المكونات الإيجابية
+    if (positiveIngredients.length > 0) {
+      positiveIngredients.slice(0, 3).forEach(ing => {
+        const lowerName = ing.name.toLowerCase();
+        if (skinType === 'dry' && (lowerName.includes('هيالورونيك') || lowerName.includes('hyaluronic') || lowerName.includes('جلسرين') || lowerName.includes('glycerin'))) {
+          recommendations.push(`✓ ممتاز! يحتوي على ${ing.name} المرطب الذي يناسب بشرتك الجافة`);
+        }
+        if (skinType === 'oily' && (lowerName.includes('ساليسيليك') || lowerName.includes('salicylic') || lowerName.includes('نياسيناميد') || lowerName.includes('niacinamide'))) {
+          recommendations.push(`✓ ممتاز! يحتوي على ${ing.name} الذي يساعد في تنظيم الدهون`);
+        }
+        if (skinType === 'sensitive' && (lowerName.includes('صبار') || lowerName.includes('aloe') || lowerName.includes('بانثينول') || lowerName.includes('panthenol'))) {
+          recommendations.push(`✓ ممتاز! يحتوي على ${ing.name} المهدئ المناسب لبشرتك الحساسة`);
+        }
+      });
+    }
+
+    return recommendations;
+  };
+
   return (
     <div className="space-y-6" dir="rtl">
       {/* Header with Score */}
@@ -158,6 +233,33 @@ const AnalysisResults = ({ result, onReset }: AnalysisResultsProps) => {
           </div>
         </div>
       </Card>
+
+      {/* Personalized Recommendations */}
+      {skinType && getPersonalizedRecommendations().length > 0 && (
+        <Card className="p-6 bg-gradient-to-br from-primary/5 to-primary/10 border-primary/20">
+          <div className="flex items-center gap-2 mb-4">
+            <Lightbulb className="h-5 w-5 text-primary" />
+            <h3 className="text-lg font-bold text-foreground">
+              توصيات مخصصة لبشرتك
+            </h3>
+          </div>
+          <div className="space-y-3">
+            {getPersonalizedRecommendations().map((recommendation, index) => (
+              <div 
+                key={index}
+                className="flex items-start gap-3 p-3 rounded-lg bg-background/50 backdrop-blur-sm"
+              >
+                <span className="text-xs text-muted-foreground mt-0.5">
+                  {index + 1}
+                </span>
+                <p className="text-sm text-foreground leading-relaxed flex-1">
+                  {recommendation}
+                </p>
+              </div>
+            ))}
+          </div>
+        </Card>
+      )}
 
       {/* Face AR View */}
       {showFaceAR && (
