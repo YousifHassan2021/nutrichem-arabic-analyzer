@@ -13,9 +13,9 @@ import {
 } from "lucide-react";
 import { Separator } from "@/components/ui/separator";
 import { FaceARView } from "@/components/ar/FaceARView";
-import { useState } from "react";
-import bodyEffectsImage from "@/assets/body-effects-visualization.jpg";
+import { useState, useMemo } from "react";
 import { useToast } from "@/hooks/use-toast";
+import { InteractiveBodySVG } from "./InteractiveBodySVG";
 
 interface AnalysisResult {
   productName: string;
@@ -54,6 +54,117 @@ interface AnalysisResultsProps {
 const AnalysisResults = ({ result, skinType, onReset }: AnalysisResultsProps) => {
   const [showFaceAR, setShowFaceAR] = useState(false);
   const { toast } = useToast();
+
+  // تحويل بيانات التحليل إلى قائمة الأعضاء المتأثرة
+  const affectedOrgans = useMemo(() => {
+    const organs: Array<{
+      id: string;
+      severity: "safe" | "moderate" | "severe";
+      ingredients: string[];
+      description: string;
+    }> = [];
+
+    // خريطة الأعضاء المعتمدة
+    const organMap: Record<string, string> = {
+      كبد: "liver",
+      الكبد: "liver",
+      liver: "liver",
+      كلى: "kidneys",
+      الكلى: "kidneys",
+      كلية: "kidneys",
+      kidneys: "kidneys",
+      kidney: "kidneys",
+      جلد: "skin",
+      الجلد: "skin",
+      بشرة: "skin",
+      skin: "skin",
+      رئة: "lungs",
+      رئتين: "lungs",
+      الرئتين: "lungs",
+      lungs: "lungs",
+      lung: "lungs",
+      دماغ: "brain",
+      المخ: "brain",
+      الدماغ: "brain",
+      brain: "brain",
+      قلب: "heart",
+      القلب: "heart",
+      heart: "heart",
+      معدة: "stomach",
+      المعدة: "stomach",
+      stomach: "stomach",
+      أمعاء: "intestines",
+      الأمعاء: "intestines",
+      intestines: "intestines",
+    };
+
+    // معالجة المكونات السلبية
+    result.negativeIngredients?.forEach((ing) => {
+      if (ing.affectedOrgan) {
+        const organKey = organMap[ing.affectedOrgan.toLowerCase().trim()];
+        if (organKey) {
+          const existing = organs.find((o) => o.id === organKey);
+          if (existing) {
+            existing.ingredients.push(ing.name);
+            if (existing.severity !== "severe") {
+              existing.severity = ing.severity === "خطر" || ing.severity === "عالي" ? "severe" : "moderate";
+            }
+          } else {
+            organs.push({
+              id: organKey,
+              severity: ing.severity === "خطر" || ing.severity === "عالي" ? "severe" : "moderate",
+              ingredients: [ing.name],
+              description: `تأثير ضار: ${ing.impact}`,
+            });
+          }
+        }
+      }
+    });
+
+    // معالجة المكونات المشكوك فيها
+    result.suspiciousIngredients?.forEach((ing) => {
+      if (ing.affectedOrgan) {
+        const organKey = organMap[ing.affectedOrgan.toLowerCase().trim()];
+        if (organKey) {
+          const existing = organs.find((o) => o.id === organKey);
+          if (existing) {
+            existing.ingredients.push(ing.name);
+          } else {
+            organs.push({
+              id: organKey,
+              severity: "moderate",
+              ingredients: [ing.name],
+              description: `مكون مشكوك فيه: ${ing.concern}`,
+            });
+          }
+        }
+      }
+    });
+
+    // معالجة المكونات الإيجابية
+    result.positiveIngredients?.forEach((ing) => {
+      if (ing.affectedOrgan) {
+        const organKey = organMap[ing.affectedOrgan.toLowerCase().trim()];
+        if (organKey) {
+          const existing = organs.find((o) => o.id === organKey);
+          if (existing && existing.severity !== "severe" && existing.severity !== "moderate") {
+            existing.ingredients.push(ing.name);
+            existing.severity = "safe";
+            existing.description = `تأثير إيجابي: ${ing.benefit}`;
+          } else if (!existing) {
+            organs.push({
+              id: organKey,
+              severity: "safe",
+              ingredients: [ing.name],
+              description: `تأثير إيجابي: ${ing.benefit}`,
+            });
+          }
+        }
+      }
+    });
+
+    return organs;
+  }, [result]);
   
   const getScoreColor = (score: number) => {
     if (score >= 80) return "text-success";
@@ -303,8 +414,8 @@ const AnalysisResults = ({ result, skinType, onReset }: AnalysisResultsProps) =>
         />
       )}
 
-      {/* Effects Visualization on Body Image */}
-      {(result.negativeIngredients?.length > 0 || result.positiveIngredients?.length > 0) && (
+      {/* Interactive Body Visualization */}
+      {affectedOrgans.length > 0 && (
         <Card className="p-6 bg-gradient-to-br from-muted/30 to-background border-border/50">
           <div className="space-y-6">
             <div className="space-y-2">
@@ -313,95 +424,13 @@ const AnalysisResults = ({ result, skinType, onReset }: AnalysisResultsProps) =>
                 تأثير المكونات على أعضاء الجسم
               </h3>
               <p className="text-sm text-muted-foreground">
-                صورة توضيحية تُظهر المناطق المتأثرة بالمكونات السلبية والإيجابية في الجسم
+                اضغط على أي عضو لمعرفة التأثير المحتمل والمكونات المسؤولة
               </p>
             </div>
             
             <Separator />
             
-            {/* Body Visualization */}
-            <div className="relative bg-gradient-to-br from-primary/5 to-muted/50 rounded-xl p-8 border border-border/50">
-              <img 
-                src={bodyEffectsImage} 
-                alt="تأثير المكونات على أعضاء الجسم" 
-                className="w-full max-w-md mx-auto rounded-lg shadow-2xl"
-              />
-              
-              {/* Legend - Below Image */}
-              <div className="mt-6 grid grid-cols-3 gap-3">
-                <div className="flex flex-col items-center gap-2 p-3 bg-destructive/10 rounded-lg border border-destructive/20 backdrop-blur-sm">
-                  <div className="w-4 h-4 rounded-full bg-destructive shadow-lg shadow-destructive/50"></div>
-                  <span className="text-xs font-medium text-foreground text-center">مكونات ضارة</span>
-                </div>
-                <div className="flex flex-col items-center gap-2 p-3 bg-warning/10 rounded-lg border border-warning/20 backdrop-blur-sm">
-                  <div className="w-4 h-4 rounded-full bg-warning shadow-lg shadow-warning/50"></div>
-                  <span className="text-xs font-medium text-foreground text-center">مشكوك فيها</span>
-                </div>
-                <div className="flex flex-col items-center gap-2 p-3 bg-success/10 rounded-lg border border-success/20 backdrop-blur-sm">
-                  <div className="w-4 h-4 rounded-full bg-success shadow-lg shadow-success/50"></div>
-                  <span className="text-xs font-medium text-foreground text-center">مكونات مفيدة</span>
-                </div>
-              </div>
-            </div>
-            
-            {/* Ingredients List with Color Coding */}
-            <div className="space-y-4">
-              <h4 className="font-bold text-foreground text-lg">قائمة المكونات المؤثرة:</h4>
-              
-              {result.negativeIngredients && result.negativeIngredients.length > 0 && (
-                <div className="space-y-2">
-                  <p className="text-sm font-semibold text-destructive">المكونات الضارة:</p>
-                  {result.negativeIngredients.map((ing, idx) => (
-                    <div key={idx} className="flex items-start gap-3 p-4 rounded-lg bg-destructive/5 border border-destructive/20 hover:bg-destructive/10 transition-colors">
-                      <div className="w-3 h-3 rounded-full bg-destructive mt-1 flex-shrink-0 shadow-lg shadow-destructive/50"></div>
-                      <div className="flex-1">
-                        <p className="font-bold text-foreground">{ing.name}</p>
-                        <p className="text-sm text-muted-foreground mt-1">{ing.impact}</p>
-                        {ing.affectedOrgan && (
-                          <p className="text-xs text-destructive mt-1 font-medium">⚠️ العضو المتأثر: {ing.affectedOrgan}</p>
-                        )}
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              )}
-              
-              {result.suspiciousIngredients && result.suspiciousIngredients.length > 0 && (
-                <div className="space-y-2">
-                  <p className="text-sm font-semibold text-warning">المكونات المشكوك فيها:</p>
-                  {result.suspiciousIngredients.map((ing, idx) => (
-                    <div key={idx} className="flex items-start gap-3 p-4 rounded-lg bg-warning/5 border border-warning/20 hover:bg-warning/10 transition-colors">
-                      <div className="w-3 h-3 rounded-full bg-warning mt-1 flex-shrink-0 shadow-lg shadow-warning/50"></div>
-                      <div className="flex-1">
-                        <p className="font-bold text-foreground">{ing.name}</p>
-                        <p className="text-sm text-muted-foreground mt-1">{ing.concern}</p>
-                        {ing.affectedOrgan && (
-                          <p className="text-xs text-warning mt-1 font-medium">⚠️ العضو المتأثر: {ing.affectedOrgan}</p>
-                        )}
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              )}
-              
-              {result.positiveIngredients && result.positiveIngredients.length > 0 && (
-                <div className="space-y-2">
-                  <p className="text-sm font-semibold text-success">المكونات المفيدة:</p>
-                  {result.positiveIngredients.map((ing, idx) => (
-                    <div key={idx} className="flex items-start gap-3 p-4 rounded-lg bg-success/5 border border-success/20 hover:bg-success/10 transition-colors">
-                      <div className="w-3 h-3 rounded-full bg-success mt-1 flex-shrink-0 shadow-lg shadow-success/50"></div>
-                      <div className="flex-1">
-                        <p className="font-bold text-foreground">{ing.name}</p>
-                        <p className="text-sm text-muted-foreground mt-1">{ing.benefit}</p>
-                        {ing.affectedOrgan && (
-                          <p className="text-xs text-success mt-1 font-medium">✅ العضو المتأثر: {ing.affectedOrgan}</p>
-                        )}
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              )}
-            </div>
+            <InteractiveBodySVG affectedOrgans={affectedOrgans} />
           </div>
         </Card>
       )}
