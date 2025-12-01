@@ -90,7 +90,8 @@ export const FaceARView = ({
 
             faceDetection.setOptions({
               model: 'short',
-              minDetectionConfidence: 0.5
+              // lowered قليلاً لتحسين رصد الوجه على كاميرات الموبايل
+              minDetectionConfidence: 0.3,
             });
 
             faceDetection.onResults(onFaceDetectionResults);
@@ -158,16 +159,56 @@ export const FaceARView = ({
     // Clear canvas
     ctx.clearRect(0, 0, canvas.width, canvas.height);
 
-    if (results.detections && results.detections.length > 0) {
+    // MediaPipe قد تُرجع الحقول بأسماء مختلفة حسب الإصدار
+    const detections =
+      results?.detections ||
+      results?.faceDetections ||
+      results?.multiFaceDetections ||
+      [];
+
+    const hasDetections = Array.isArray(detections) && detections.length > 0;
+    console.log('Face AR - detections', {
+      hasDetections,
+      count: hasDetections ? detections.length : 0,
+    });
+
+    if (hasDetections) {
       setFaceDetected(true);
-      const detection = results.detections[0];
-      
-      // Calculate face zones based on face landmarks
-      const bbox = detection.boundingBox;
-      const x = bbox.xCenter * canvas.width - (bbox.width * canvas.width) / 2;
-      const y = bbox.yCenter * canvas.height - (bbox.height * canvas.height) / 2;
-      const width = bbox.width * canvas.width;
-      const height = bbox.height * canvas.height;
+      const detection: any = detections[0];
+
+      // Calculate face bounding box (ندعم أكثر من شكل للبيانات)
+      let x = 0;
+      let y = 0;
+      let width = canvas.width;
+      let height = canvas.height;
+
+      if (detection.boundingBox) {
+        const bbox = detection.boundingBox;
+        // قيم MediaPipe هنا تكون عادةً كنسب من العرض/الارتفاع
+        x = bbox.xCenter * canvas.width - (bbox.width * canvas.width) / 2;
+        y = bbox.yCenter * canvas.height - (bbox.height * canvas.height) / 2;
+        width = bbox.width * canvas.width;
+        height = bbox.height * canvas.height;
+      } else if (detection.locationData?.relativeBoundingBox) {
+        const rb = detection.locationData.relativeBoundingBox;
+        x = rb.xmin * canvas.width;
+        y = rb.ymin * canvas.height;
+        width = rb.width * canvas.width;
+        height = rb.height * canvas.height;
+      } else {
+        console.warn('Face AR - no bounding box on detection', detection);
+        setFaceDetected(false);
+        setFaceZones([]);
+        return;
+      }
+
+      // تأكد من أن الأبعاد منطقية قبل المتابعة
+      if (!isFinite(x) || !isFinite(y) || !isFinite(width) || !isFinite(height)) {
+        console.warn('Face AR - invalid bounding box values', { x, y, width, height });
+        setFaceDetected(false);
+        setFaceZones([]);
+        return;
+      }
 
       // Define face zones for cosmetic effects
       const zones = calculateFaceZones(x, y, width, height);
