@@ -68,9 +68,10 @@ export const FaceARView = ({
       const stream = await navigator.mediaDevices.getUserMedia({ 
         video: { 
           facingMode: 'user',
-          width: { ideal: 1280 },
-          height: { ideal: 720 }
-        } 
+          width: { min: 640, ideal: 1280, max: 1920 },
+          height: { min: 480, ideal: 720, max: 1080 }
+        },
+        audio: false
       });
 
       if (videoRef.current) {
@@ -141,12 +142,18 @@ export const FaceARView = ({
     if (!canvasRef.current || !videoRef.current) return;
 
     const canvas = canvasRef.current;
+    const video = videoRef.current;
     const ctx = canvas.getContext('2d');
     if (!ctx) return;
 
-    // Set canvas size to match video
-    canvas.width = videoRef.current.videoWidth;
-    canvas.height = videoRef.current.videoHeight;
+    // Set canvas size to match video actual dimensions
+    const videoWidth = video.videoWidth;
+    const videoHeight = video.videoHeight;
+    
+    if (videoWidth === 0 || videoHeight === 0) return;
+    
+    canvas.width = videoWidth;
+    canvas.height = videoHeight;
 
     // Clear canvas
     ctx.clearRect(0, 0, canvas.width, canvas.height);
@@ -330,14 +337,27 @@ export const FaceARView = ({
     });
   };
 
-  const handleCanvasClick = (e: React.MouseEvent<HTMLCanvasElement>) => {
+  const handleCanvasClick = (e: React.MouseEvent<HTMLCanvasElement> | React.TouchEvent<HTMLCanvasElement>) => {
+    e.preventDefault();
     if (!canvasRef.current) return;
 
     const rect = canvasRef.current.getBoundingClientRect();
+    
+    // Handle both mouse and touch events
+    let clientX: number, clientY: number;
+    if ('touches' in e) {
+      if (e.touches.length === 0) return;
+      clientX = e.touches[0].clientX;
+      clientY = e.touches[0].clientY;
+    } else {
+      clientX = e.clientX;
+      clientY = e.clientY;
+    }
+
     const scaleX = canvasRef.current.width / rect.width;
     const scaleY = canvasRef.current.height / rect.height;
-    const clickX = (e.clientX - rect.left) * scaleX;
-    const clickY = (e.clientY - rect.top) * scaleY;
+    const clickX = (clientX - rect.left) * scaleX;
+    const clickY = (clientY - rect.top) * scaleY;
 
     // Find clicked zone
     const clickedZone = faceZones.find(zone => 
@@ -369,19 +389,25 @@ export const FaceARView = ({
   return (
     <div className="fixed inset-0 z-50 bg-background" dir="rtl">
       {/* Video and Canvas Container */}
-      <div className="absolute inset-0 flex items-center justify-center bg-black">
-        <div className="relative w-full h-full">
+      <div className="absolute inset-0 flex items-center justify-center bg-black overflow-hidden">
+        <div className="relative w-full h-full flex items-center justify-center">
           <video
             ref={videoRef}
-            className="absolute inset-0 w-full h-full object-cover"
+            className="w-full h-full object-cover"
             playsInline
+            autoPlay
+            muted
             style={{ transform: 'scaleX(-1)' }} // Mirror effect
           />
           <canvas
             ref={canvasRef}
             onClick={handleCanvasClick}
+            onTouchStart={handleCanvasClick}
             className="absolute inset-0 w-full h-full object-cover cursor-pointer"
-            style={{ transform: 'scaleX(-1)' }} // Mirror effect
+            style={{ 
+              transform: 'scaleX(-1)',
+              touchAction: 'none'
+            }}
           />
         </div>
       </div>
@@ -410,7 +436,7 @@ export const FaceARView = ({
 
       {/* Zone Info Panel */}
       {selectedZone && (
-        <Card className="absolute top-20 right-4 w-80 p-4 bg-background/95 backdrop-blur-sm border-primary/20 shadow-xl z-10 max-h-[60vh] overflow-y-auto">
+        <Card className="absolute top-16 left-4 right-4 md:top-20 md:right-4 md:left-auto md:w-80 p-4 bg-background/95 backdrop-blur-sm border-primary/20 shadow-xl z-10 max-h-[50vh] overflow-y-auto">
           <div className="flex items-start justify-between mb-3">
             <h3 className="text-lg font-bold text-primary">
               {selectedZone.name}
@@ -449,7 +475,7 @@ export const FaceARView = ({
       )}
 
       {/* Instructions */}
-      <div className="absolute bottom-4 left-1/2 -translate-x-1/2 bg-background/90 backdrop-blur-sm rounded-lg p-4 text-sm text-center z-10 max-w-md">
+      <div className="absolute bottom-4 left-4 right-4 md:left-1/2 md:-translate-x-1/2 bg-background/90 backdrop-blur-sm rounded-lg p-3 md:p-4 text-sm text-center z-10 md:max-w-md">
         <p className="font-semibold text-foreground mb-2">📱 معاينة التأثير على الوجه</p>
         <p className="text-muted-foreground text-xs">
           {faceDetected 
