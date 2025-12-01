@@ -8,13 +8,10 @@ import {
   ArrowRight,
   RotateCcw,
   ScanFace,
-  Sparkles,
   Lightbulb,
 } from "lucide-react";
 import { Separator } from "@/components/ui/separator";
-import { ARView } from "@/components/ar/ARView";
 import { FaceARView } from "@/components/ar/FaceARView";
-import { SkinTypeAnalysis } from "@/components/ar/SkinTypeAnalysis";
 import { useState } from "react";
 import bodyEffectsImage from "@/assets/body-effects-visualization.jpg";
 import { useToast } from "@/hooks/use-toast";
@@ -49,14 +46,12 @@ interface AnalysisResult {
 
 interface AnalysisResultsProps {
   result: AnalysisResult;
+  skinType: string | null;
   onReset: () => void;
 }
 
-const AnalysisResults = ({ result, onReset }: AnalysisResultsProps) => {
-  const [showAR, setShowAR] = useState(false);
+const AnalysisResults = ({ result, skinType, onReset }: AnalysisResultsProps) => {
   const [showFaceAR, setShowFaceAR] = useState(false);
-  const [showSkinTypeAnalysis, setShowSkinTypeAnalysis] = useState(false);
-  const [skinType, setSkinType] = useState<string | null>(null);
   const { toast } = useToast();
   
   const getScoreColor = (score: number) => {
@@ -102,68 +97,128 @@ const AnalysisResults = ({ result, onReset }: AnalysisResultsProps) => {
     const negativeIngredients = result.negativeIngredients || [];
     const positiveIngredients = result.positiveIngredients || [];
 
-    // توصيات عامة حسب نوع البشرة
-    const skinTypeAdvice: Record<string, string[]> = {
-      dry: [
-        'ابحث عن منتجات تحتوي على مواد مرطبة مثل حمض الهيالورونيك والجلسرين',
-        'تجنب المنتجات التي تحتوي على الكحول أو العطور القوية',
-        'استخدم المنتجات الغنية بالزيوت الطبيعية والسيراميد'
-      ],
-      oily: [
-        'اختر منتجات خفيفة غير دهنية ومتوازنة',
-        'ابحث عن مكونات مثل حمض الساليسيليك والنياسيناميد',
-        'تجنب المنتجات الثقيلة جداً أو الزيتية'
-      ],
-      combination: [
-        'استخدم منتجات متوازنة تناسب المناطق المختلفة من وجهك',
-        'ركز على الترطيب الخفيف في المناطق الجافة',
-        'استخدم منتجات تحكم الدهون لمنطقة T'
-      ],
-      sensitive: [
-        'تجنب المنتجات التي تحتوي على عطور أو مواد مهيجة',
-        'ابحث عن منتجات مضادة للحساسية ومختبرة طبياً',
-        'اختر مكونات مهدئة مثل الصبار والبانثينول'
-      ],
-      normal: [
-        'حافظ على روتين عناية منتظم',
-        'استخدم منتجات متوازنة للحفاظ على صحة بشرتك',
-        'ركز على الوقاية والحماية من العوامل الخارجية'
-      ]
-    };
-
-    // إضافة التوصيات العامة
-    recommendations.push(...(skinTypeAdvice[skinType] || []));
-
-    // توصيات بناءً على المكونات السلبية
+    // توصيات محددة بناءً على تأثير المكونات على نوع البشرة
     if (negativeIngredients.length > 0) {
-      negativeIngredients.slice(0, 3).forEach(ing => {
+      negativeIngredients.forEach(ing => {
         const lowerName = ing.name.toLowerCase();
-        if (skinType === 'dry' && (lowerName.includes('كحول') || lowerName.includes('alcohol'))) {
-          recommendations.push(`⚠️ يحتوي على ${ing.name} الذي يزيد من جفاف بشرتك - تجنب هذا المنتج`);
+        const lowerImpact = ing.impact?.toLowerCase() || '';
+        
+        // تحذيرات للبشرة الجافة
+        if (skinType === 'dry') {
+          if (lowerName.includes('كحول') || lowerName.includes('alcohol')) {
+            recommendations.push(`⚠️ ${ing.name}: يزيد من جفاف بشرتك ويسبب تهيج - تجنب هذا المنتج تماماً`);
+          } else if (lowerImpact.includes('جفاف') || lowerImpact.includes('تقشير')) {
+            recommendations.push(`⚠️ ${ing.name}: ${ing.impact} - غير مناسب للبشرة الجافة`);
+          }
         }
-        if (skinType === 'oily' && (lowerName.includes('زيت') || lowerName.includes('oil'))) {
-          recommendations.push(`⚠️ يحتوي على ${ing.name} الذي قد يزيد من دهنية بشرتك`);
+        
+        // تحذيرات للبشرة الدهنية
+        if (skinType === 'oily') {
+          if (lowerName.includes('زيت') || lowerName.includes('oil') && !lowerName.includes('معدنية')) {
+            recommendations.push(`⚠️ ${ing.name}: يزيد من إفراز الدهون ويسد المسام - تجنب إذا كانت بشرتك دهنية`);
+          } else if (lowerImpact.includes('دهني') || lowerImpact.includes('لمعان')) {
+            recommendations.push(`⚠️ ${ing.name}: ${ing.impact} - قد يسبب زيادة في دهنية البشرة`);
+          }
         }
-        if (skinType === 'sensitive' && (lowerName.includes('عطر') || lowerName.includes('fragrance') || lowerName.includes('parfum'))) {
-          recommendations.push(`⚠️ يحتوي على ${ing.name} الذي قد يسبب تهيج لبشرتك الحساسة`);
+        
+        // تحذيرات للبشرة الحساسة
+        if (skinType === 'sensitive') {
+          if (lowerName.includes('عطر') || lowerName.includes('fragrance') || lowerName.includes('parfum')) {
+            recommendations.push(`⚠️ ${ing.name}: يسبب تهيج وحساسية شديدة - خطر على بشرتك الحساسة`);
+          } else if (lowerName.includes('كبريتات') || lowerName.includes('sulfate')) {
+            recommendations.push(`⚠️ ${ing.name}: مهيج قوي للبشرة الحساسة - تجنب تماماً`);
+          } else if (lowerImpact.includes('تهيج') || lowerImpact.includes('حساسية') || lowerImpact.includes('التهاب')) {
+            recommendations.push(`⚠️ ${ing.name}: ${ing.impact} - خطر مضاعف على البشرة الحساسة`);
+          }
+        }
+        
+        // تحذيرات للبشرة المختلطة
+        if (skinType === 'combination') {
+          if (lowerImpact.includes('توازن') || (lowerName.includes('زيت') && lowerName.includes('ثقيل'))) {
+            recommendations.push(`⚠️ ${ing.name}: يخل بتوازن بشرتك المختلطة - قد يسبب جفاف في مناطق ودهون في أخرى`);
+          }
         }
       });
     }
 
-    // توصيات بناءً على المكونات الإيجابية
+    // توصيات إيجابية بناءً على المكونات المفيدة
     if (positiveIngredients.length > 0) {
-      positiveIngredients.slice(0, 3).forEach(ing => {
+      positiveIngredients.forEach(ing => {
         const lowerName = ing.name.toLowerCase();
-        if (skinType === 'dry' && (lowerName.includes('هيالورونيك') || lowerName.includes('hyaluronic') || lowerName.includes('جلسرين') || lowerName.includes('glycerin'))) {
-          recommendations.push(`✓ ممتاز! يحتوي على ${ing.name} المرطب الذي يناسب بشرتك الجافة`);
+        const lowerBenefit = ing.benefit?.toLowerCase() || '';
+        
+        // فوائد للبشرة الجافة
+        if (skinType === 'dry') {
+          if (lowerName.includes('هيالورونيك') || lowerName.includes('hyaluronic') || 
+              lowerName.includes('جلسرين') || lowerName.includes('glycerin') ||
+              lowerName.includes('سيراميد') || lowerName.includes('ceramide')) {
+            recommendations.push(`✅ ممتاز! ${ing.name}: مرطب قوي يحبس الرطوبة - مثالي لبشرتك الجافة`);
+          } else if (lowerBenefit.includes('ترطيب') || lowerBenefit.includes('نعومة')) {
+            recommendations.push(`✅ ${ing.name}: ${ing.benefit} - رائع للبشرة الجافة`);
+          }
         }
-        if (skinType === 'oily' && (lowerName.includes('ساليسيليك') || lowerName.includes('salicylic') || lowerName.includes('نياسيناميد') || lowerName.includes('niacinamide'))) {
-          recommendations.push(`✓ ممتاز! يحتوي على ${ing.name} الذي يساعد في تنظيم الدهون`);
+        
+        // فوائد للبشرة الدهنية
+        if (skinType === 'oily') {
+          if (lowerName.includes('ساليسيليك') || lowerName.includes('salicylic') || 
+              lowerName.includes('نياسيناميد') || lowerName.includes('niacinamide') ||
+              lowerName.includes('زنك') || lowerName.includes('zinc')) {
+            recommendations.push(`✅ ممتاز! ${ing.name}: ينظم إفراز الدهون ويقلل اللمعان - مثالي لبشرتك الدهنية`);
+          } else if (lowerBenefit.includes('مات') || lowerBenefit.includes('تحكم دهون') || lowerBenefit.includes('مسام')) {
+            recommendations.push(`✅ ${ing.name}: ${ing.benefit} - رائع للبشرة الدهنية`);
+          }
         }
-        if (skinType === 'sensitive' && (lowerName.includes('صبار') || lowerName.includes('aloe') || lowerName.includes('بانثينول') || lowerName.includes('panthenol'))) {
-          recommendations.push(`✓ ممتاز! يحتوي على ${ing.name} المهدئ المناسب لبشرتك الحساسة`);
+        
+        // فوائد للبشرة الحساسة
+        if (skinType === 'sensitive') {
+          if (lowerName.includes('صبار') || lowerName.includes('aloe') || 
+              lowerName.includes('بانثينول') || lowerName.includes('panthenol') ||
+              lowerName.includes('كاموميل') || lowerName.includes('chamomile')) {
+            recommendations.push(`✅ ممتاز! ${ing.name}: مهدئ ومضاد للالتهاب - آمن تماماً لبشرتك الحساسة`);
+          } else if (lowerBenefit.includes('تهدئة') || lowerBenefit.includes('حماية')) {
+            recommendations.push(`✅ ${ing.name}: ${ing.benefit} - مناسب للبشرة الحساسة`);
+          }
+        }
+        
+        // فوائد للبشرة المختلطة
+        if (skinType === 'combination') {
+          if (lowerBenefit.includes('توازن') || lowerName.includes('niacinamide')) {
+            recommendations.push(`✅ ${ing.name}: ${ing.benefit} - مثالي لتوازن بشرتك المختلطة`);
+          }
         }
       });
+    }
+
+    // توصيات عامة إذا لم تكن هناك توصيات محددة
+    if (recommendations.length === 0) {
+      const skinTypeAdvice: Record<string, string[]> = {
+        dry: [
+          'ابحث عن منتجات غنية بالمرطبات مثل حمض الهيالورونيك والجلسرين',
+          'تجنب المنتجات التي تحتوي على الكحول',
+          'استخدم كريمات غنية وزيوت طبيعية'
+        ],
+        oily: [
+          'اختر منتجات خفيفة ومائية القوام',
+          'ابحث عن مكونات تنظم الدهون مثل النياسيناميد',
+          'تجنب المنتجات الزيتية الثقيلة'
+        ],
+        combination: [
+          'استخدم منتجات متوازنة تناسب جميع المناطق',
+          'ركز على الترطيب الخفيف',
+          'نظم إفراز الدهون في منطقة T'
+        ],
+        sensitive: [
+          'تجنب العطور والمواد المهيجة بشكل كامل',
+          'اختر منتجات هيبوالرجينيك ومختبرة طبياً',
+          'ابحث عن مكونات مهدئة طبيعية'
+        ],
+        normal: [
+          'حافظ على روتين عناية متوازن',
+          'استخدم واقي شمس يومياً',
+          'ركز على الوقاية والحماية'
+        ]
+      };
+      recommendations.push(...(skinTypeAdvice[skinType] || []));
     }
 
     return recommendations;
@@ -193,19 +248,8 @@ const AnalysisResults = ({ result, onReset }: AnalysisResultsProps) => {
           </div>
           <p className="text-base text-foreground/90 leading-relaxed">{result.summary}</p>
           
-          {/* AR Buttons */}
-          <div className="pt-4 space-y-3">
-            {/* Skin Type Analysis Button */}
-            <Button
-              onClick={() => setShowSkinTypeAnalysis(true)}
-              variant={skinType ? "secondary" : "default"}
-              className="w-full"
-              size="lg"
-            >
-              <Sparkles className="ml-2 h-5 w-5" />
-              {skinType ? 'تغيير نوع البشرة' : 'تحليل نوع البشرة'}
-            </Button>
-            
+          {/* AR Button */}
+          <div className="pt-4">
             <Button
               onClick={() => setShowFaceAR(true)}
               className="w-full bg-gradient-to-r from-primary to-primary/80 hover:from-primary/90 hover:to-primary/70"
@@ -214,21 +258,8 @@ const AnalysisResults = ({ result, onReset }: AnalysisResultsProps) => {
               <ScanFace className="ml-2 h-5 w-5" />
               معاينة التأثير على الوجه
             </Button>
-            <p className="text-xs text-muted-foreground text-center">
+            <p className="text-xs text-muted-foreground text-center mt-2">
               شاهد تأثيرات المنتج مباشرة على وجهك باستخدام تقنية التعرف على الوجه
-            </p>
-            
-            <Button
-              onClick={() => setShowAR(true)}
-              variant="outline"
-              className="w-full"
-              size="lg"
-            >
-              <ScanFace className="ml-2 h-5 w-5" />
-              عرض النموذج ثلاثي الأبعاد
-            </Button>
-            <p className="text-xs text-muted-foreground text-center">
-              استكشف التأثيرات على نموذج الجسم ثلاثي الأبعاد
             </p>
           </div>
         </div>
@@ -236,20 +267,20 @@ const AnalysisResults = ({ result, onReset }: AnalysisResultsProps) => {
 
       {/* Personalized Recommendations */}
       {skinType && getPersonalizedRecommendations().length > 0 && (
-        <Card className="p-6 bg-gradient-to-br from-primary/5 to-primary/10 border-primary/20">
+        <Card className="p-6 bg-gradient-to-br from-accent/10 to-accent/5 border-accent/30">
           <div className="flex items-center gap-2 mb-4">
-            <Lightbulb className="h-5 w-5 text-primary" />
+            <Lightbulb className="h-5 w-5 text-accent" />
             <h3 className="text-lg font-bold text-foreground">
-              توصيات مخصصة لبشرتك
+              توصيات مخصصة حسب نوع بشرتك
             </h3>
           </div>
           <div className="space-y-3">
             {getPersonalizedRecommendations().map((recommendation, index) => (
               <div 
                 key={index}
-                className="flex items-start gap-3 p-3 rounded-lg bg-background/50 backdrop-blur-sm"
+                className="flex items-start gap-3 p-4 rounded-lg bg-background/70 backdrop-blur-sm border border-accent/10"
               >
-                <span className="text-xs text-muted-foreground mt-0.5">
+                <span className="text-sm font-semibold text-accent mt-0.5 min-w-[24px]">
                   {index + 1}
                 </span>
                 <p className="text-sm text-foreground leading-relaxed flex-1">
@@ -271,28 +302,83 @@ const AnalysisResults = ({ result, onReset }: AnalysisResultsProps) => {
         />
       )}
 
-      {/* Skin Type Analysis */}
-      {showSkinTypeAnalysis && (
-        <SkinTypeAnalysis
-          onClose={() => setShowSkinTypeAnalysis(false)}
-          onSkinTypeSelected={(type) => {
-            setSkinType(type);
-            toast({
-              title: 'تم تحديد نوع البشرة',
-              description: 'سيتم تخصيص التوصيات بناءً على نوع بشرتك'
-            });
-          }}
-        />
-      )}
-
-      {/* AR View */}
-      {showAR && (
-        <ARView
-          negativeIngredients={result.negativeIngredients || []}
-          positiveIngredients={result.positiveIngredients || []}
-          suspiciousIngredients={result.suspiciousIngredients || []}
-          onClose={() => setShowAR(false)}
-        />
+      {/* Effects Visualization on Body Image */}
+      {(result.negativeIngredients?.length > 0 || result.positiveIngredients?.length > 0) && (
+        <Card className="p-6 bg-gradient-to-br from-primary/5 to-background">
+          <div className="space-y-4">
+            <div className="space-y-2">
+              <h3 className="text-xl font-semibold text-foreground">تأثير المكونات على أعضاء الجسم</h3>
+              <p className="text-sm text-muted-foreground">
+                صورة توضيحية تُظهر المناطق المتأثرة بالمكونات السلبية والإيجابية في الجسم
+              </p>
+            </div>
+            <Separator />
+            
+            {/* Colored Zones Legend */}
+            <div className="flex flex-wrap items-center justify-center gap-6 p-4 bg-muted/30 rounded-lg">
+              <div className="flex items-center gap-2">
+                <div className="w-4 h-4 rounded-full bg-destructive shadow-lg shadow-destructive/50"></div>
+                <span className="text-sm font-medium text-foreground">مكونات ضارة</span>
+              </div>
+              <div className="flex items-center gap-2">
+                <div className="w-4 h-4 rounded-full bg-warning shadow-lg shadow-warning/50"></div>
+                <span className="text-sm font-medium text-foreground">مكونات مشكوك فيها</span>
+              </div>
+              <div className="flex items-center gap-2">
+                <div className="w-4 h-4 rounded-full bg-success shadow-lg shadow-success/50"></div>
+                <span className="text-sm font-medium text-foreground">مكونات مفيدة</span>
+              </div>
+            </div>
+            
+            {/* Body Visualization with Color Overlays */}
+            <div className="relative rounded-lg overflow-hidden border border-border">
+              <img 
+                src={bodyEffectsImage} 
+                alt="تأثير المكونات على أعضاء الجسم" 
+                className="w-full h-auto object-contain max-h-[700px] mx-auto"
+              />
+            </div>
+            
+            {/* Ingredients List with Color Coding */}
+            <div className="space-y-3 mt-4">
+              <h4 className="font-semibold text-foreground">المكونات المؤثرة:</h4>
+              
+              {result.negativeIngredients && result.negativeIngredients.length > 0 && (
+                <div className="space-y-2">
+                  {result.negativeIngredients.map((ing, idx) => (
+                    <div key={idx} className="flex items-start gap-3 p-3 rounded-lg bg-destructive/5 border border-destructive/20">
+                      <div className="w-3 h-3 rounded-full bg-destructive mt-1 flex-shrink-0 shadow-lg shadow-destructive/50"></div>
+                      <div className="flex-1">
+                        <p className="font-medium text-foreground">{ing.name}</p>
+                        <p className="text-xs text-muted-foreground mt-1">{ing.impact}</p>
+                        {ing.affectedOrgan && (
+                          <p className="text-xs text-destructive mt-1">العضو المتأثر: {ing.affectedOrgan}</p>
+                        )}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+              
+              {result.positiveIngredients && result.positiveIngredients.length > 0 && (
+                <div className="space-y-2">
+                  {result.positiveIngredients.map((ing, idx) => (
+                    <div key={idx} className="flex items-start gap-3 p-3 rounded-lg bg-success/5 border border-success/20">
+                      <div className="w-3 h-3 rounded-full bg-success mt-1 flex-shrink-0 shadow-lg shadow-success/50"></div>
+                      <div className="flex-1">
+                        <p className="font-medium text-foreground">{ing.name}</p>
+                        <p className="text-xs text-muted-foreground mt-1">{ing.benefit}</p>
+                        {ing.affectedOrgan && (
+                          <p className="text-xs text-success mt-1">العضو المتأثر: {ing.affectedOrgan}</p>
+                        )}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          </div>
+        </Card>
       )}
 
       {/* Effects Visualization Image */}

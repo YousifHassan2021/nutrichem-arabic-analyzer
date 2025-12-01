@@ -7,6 +7,7 @@ import { Loader2, Beaker, AlertCircle, Upload, X, ScanLine, Crown, Shield, Downl
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import AnalysisResults from "@/components/AnalysisResults";
+import { SkinTypeAnalysis } from "@/components/ar/SkinTypeAnalysis";
 import { BarcodeScanner } from '@capacitor-mlkit/barcode-scanning';
 import { Capacitor } from '@capacitor/core';
 import logo from "@/assets/logo.png";
@@ -50,6 +51,8 @@ const Index = () => {
   const [imagePreview, setImagePreview] = useState<string | null>(null);
   const [isScanning, setIsScanning] = useState(false);
   const [isAdmin, setIsAdmin] = useState(false);
+  const [skinType, setSkinType] = useState<string | null>(null);
+  const [showSkinTypeSelection, setShowSkinTypeSelection] = useState(true);
   const isNative = Capacitor.isNativePlatform();
 
   useEffect(() => {
@@ -304,7 +307,62 @@ const Index = () => {
               </div>
             </Card>
 
-            {/* Input Form */}
+            {/* Skin Type Selection - First Step */}
+            {!skinType && showSkinTypeSelection ? (
+              <Card className="p-6 bg-gradient-to-br from-accent/10 to-accent/5 border-accent/30">
+                <div className="space-y-4">
+                  <div className="text-center space-y-2">
+                    <h2 className="text-2xl font-bold text-foreground">
+                      الخطوة الأولى: حدد نوع بشرتك
+                    </h2>
+                    <p className="text-muted-foreground">
+                      سنقدم لك توصيات مخصصة بناءً على نوع بشرتك لتحديد مدى ملاءمة المنتج لك
+                    </p>
+                  </div>
+                  <SkinTypeAnalysis
+                    onClose={() => setShowSkinTypeSelection(false)}
+                    onSkinTypeSelected={(type) => {
+                      setSkinType(type);
+                      setShowSkinTypeSelection(false);
+                      toast.success("تم تحديد نوع البشرة بنجاح! الآن يمكنك تحليل المنتج");
+                    }}
+                  />
+                </div>
+              </Card>
+            ) : skinType && (
+              <Card className="p-4 bg-accent/5 border-accent/20">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-3">
+                    <div className="h-10 w-10 rounded-full bg-accent/20 flex items-center justify-center">
+                      <AlertCircle className="h-5 w-5 text-accent" />
+                    </div>
+                    <div>
+                      <p className="text-sm text-muted-foreground">نوع البشرة المحدد</p>
+                      <p className="font-semibold text-foreground">
+                        {skinType === 'dry' && 'بشرة جافة'}
+                        {skinType === 'oily' && 'بشرة دهنية'}
+                        {skinType === 'combination' && 'بشرة مختلطة'}
+                        {skinType === 'sensitive' && 'بشرة حساسة'}
+                        {skinType === 'normal' && 'بشرة عادية'}
+                      </p>
+                    </div>
+                  </div>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => {
+                      setShowSkinTypeSelection(true);
+                      setSkinType(null);
+                    }}
+                  >
+                    تغيير
+                  </Button>
+                </div>
+              </Card>
+            )}
+
+            {/* Input Form - Only shown after skin type selection */}
+            {skinType && (
             <Card className="p-6 md:p-8">
               <div className="space-y-6">
                 {/* Product Type Selection */}
@@ -456,6 +514,7 @@ const Index = () => {
                 </Button>
               </div>
             </Card>
+            )}
 
             {/* Disclaimer */}
             <Card className="p-4 bg-muted/50">
@@ -466,7 +525,7 @@ const Index = () => {
             </Card>
           </div>
         ) : (
-          <AnalysisResults result={analysisResult} onReset={handleReset} />
+          <AnalysisResults result={analysisResult} skinType={skinType} onReset={handleReset} />
         )}
       </main>
     </div>
