@@ -5,7 +5,6 @@ import { Badge } from '@/components/ui/badge';
 import { X, Camera as CameraIcon } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { FaceDetection } from '@mediapipe/face_detection';
-import { Camera } from '@mediapipe/camera_utils';
 
 interface Ingredient {
   name: string;
@@ -51,7 +50,6 @@ export const FaceARView = ({
   const [faceZones, setFaceZones] = useState<FaceZone[]>([]);
   const [selectedZone, setSelectedZone] = useState<FaceZone | null>(null);
   const faceDetectionRef = useRef<FaceDetection | null>(null);
-  const cameraRef = useRef<Camera | null>(null);
 
   useEffect(() => {
     initializeFaceDetection();
@@ -62,44 +60,80 @@ export const FaceARView = ({
 
   const initializeFaceDetection = async () => {
     try {
-      // Initialize MediaPipe Face Detection
-      const faceDetection = new FaceDetection({
-        locateFile: (file) => {
-          return `https://cdn.jsdelivr.net/npm/@mediapipe/face_detection/${file}`;
-        }
-      });
-
-      faceDetection.setOptions({
-        model: 'short',
-        minDetectionConfidence: 0.5
-      });
-
-      faceDetection.onResults(onFaceDetectionResults);
-      faceDetectionRef.current = faceDetection;
-
-      // Start camera
-      if (videoRef.current) {
-        const camera = new Camera(videoRef.current, {
-          onFrame: async () => {
-            if (videoRef.current && faceDetectionRef.current) {
-              await faceDetectionRef.current.send({ image: videoRef.current });
-            }
-          },
-          width: 1280,
-          height: 720
-        });
-        
-        await camera.start();
-        cameraRef.current = camera;
-        setCameraActive(true);
+      // Request camera permission first
+      if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+        throw new Error('Camera not supported');
       }
-    } catch (error) {
+
+      const stream = await navigator.mediaDevices.getUserMedia({ 
+        video: { 
+          facingMode: 'user',
+          width: { ideal: 1280 },
+          height: { ideal: 720 }
+        } 
+      });
+
+      if (videoRef.current) {
+        videoRef.current.srcObject = stream;
+        videoRef.current.onloadedmetadata = async () => {
+          try {
+            await videoRef.current?.play();
+            setCameraActive(true);
+
+            // Initialize MediaPipe Face Detection after camera is ready
+            const faceDetection = new FaceDetection({
+              locateFile: (file) => {
+                return `https://cdn.jsdelivr.net/npm/@mediapipe/face_detection/${file}`;
+              }
+            });
+
+            faceDetection.setOptions({
+              model: 'short',
+              minDetectionConfidence: 0.5
+            });
+
+            faceDetection.onResults(onFaceDetectionResults);
+            faceDetectionRef.current = faceDetection;
+
+            // Start processing frames
+            const processFrame = async () => {
+              if (videoRef.current && faceDetectionRef.current && videoRef.current.readyState === 4) {
+                try {
+                  await faceDetectionRef.current.send({ image: videoRef.current });
+                } catch (err) {
+                  console.error('Frame processing error:', err);
+                }
+              }
+              requestAnimationFrame(processFrame);
+            };
+            processFrame();
+          } catch (playError) {
+            console.error('Video play error:', playError);
+            throw playError;
+          }
+        };
+      }
+    } catch (error: any) {
       console.error('Error initializing face detection:', error);
+      let errorMessage = 'حدث خطأ غير متوقع';
+      
+      if (error.name === 'NotAllowedError' || error.name === 'PermissionDeniedError') {
+        errorMessage = 'الرجاء السماح بالوصول للكاميرا من إعدادات المتصفح';
+      } else if (error.name === 'NotFoundError' || error.name === 'DevicesNotFoundError') {
+        errorMessage = 'لم يتم العثور على كاميرا متاحة';
+      } else if (error.name === 'NotReadableError' || error.name === 'TrackStartError') {
+        errorMessage = 'الكاميرا قيد الاستخدام من تطبيق آخر';
+      } else if (error.message === 'Camera not supported') {
+        errorMessage = 'متصفحك لا يدعم الوصول للكاميرا';
+      }
+
       toast({
         title: 'خطأ في تهيئة التعرف على الوجه',
-        description: 'الرجاء التحقق من اتصالك بالإنترنت والمحاولة مرة أخرى',
+        description: errorMessage,
         variant: 'destructive'
       });
+      
+      onClose();
     }
   };
 
@@ -294,9 +328,14 @@ export const FaceARView = ({
   };
 
   const cleanup = () => {
-    if (cameraRef.current) {
-      cameraRef.current.stop();
+    // Stop video stream
+    if (videoRef.current && videoRef.current.srcObject) {
+      const stream = videoRef.current.srcObject as MediaStream;
+      stream.getTracks().forEach(track => track.stop());
+      videoRef.current.srcObject = null;
     }
+    
+    // Close face detection
     if (faceDetectionRef.current) {
       faceDetectionRef.current.close();
     }
