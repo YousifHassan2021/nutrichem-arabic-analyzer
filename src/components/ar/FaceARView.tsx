@@ -184,14 +184,24 @@ export const FaceARView = ({
   const calculateFaceZones = (x: number, y: number, width: number, height: number): FaceZone[] => {
     const zones: FaceZone[] = [];
 
-    // Forehead zone - show all negative ingredients or general impact
-    const foreheadEffects = negativeIngredients
-      .slice(0, 3) // Take first 3 negative ingredients
-      .map(ing => ({
-        ingredient: ing.name,
-        type: 'negative' as const,
-        description: ing.impact || ing.description || 'قد يؤثر سلباً على البشرة'
-      }));
+    const hasNegative = negativeIngredients && negativeIngredients.length > 0;
+    const hasPositive = positiveIngredients && positiveIngredients.length > 0;
+    const hasSuspicious = suspiciousIngredients && suspiciousIngredients.length > 0;
+
+    // Forehead zone - سلبية + مشكوك فيها
+    const foreheadNegative = negativeIngredients.slice(0, 3).map(ing => ({
+      ingredient: ing.name,
+      type: 'negative' as const,
+      description: ing.impact || ing.description || 'قد يؤثر سلباً على البشرة'
+    }));
+
+    const foreheadSuspicious = suspiciousIngredients.slice(0, 2).map(ing => ({
+      ingredient: ing.name,
+      type: 'negative' as const,
+      description: ing.concern || ing.description || 'مكون مشكوك فيه قد يسبب تهيجاً أو ضرراً'
+    }));
+
+    const foreheadEffects = [...foreheadNegative, ...foreheadSuspicious];
 
     if (foreheadEffects.length > 0) {
       zones.push({
@@ -200,27 +210,30 @@ export const FaceARView = ({
         y: y,
         width: width,
         height: height * 0.3,
-        effects: foreheadEffects
+        effects: foreheadEffects,
       });
     }
 
-    // Cheeks zone - show both positive and negative effects
-    const cheeksEffects = [
-      ...negativeIngredients
-        .slice(0, 2)
-        .map(ing => ({
-          ingredient: ing.name,
-          type: 'negative' as const,
-          description: ing.impact || ing.description || 'قد يسبب تهيج أو جفاف'
-        })),
-      ...positiveIngredients
-        .slice(0, 2)
-        .map(ing => ({
-          ingredient: ing.name,
-          type: 'positive' as const,
-          description: ing.benefit || ing.description || 'مفيد للبشرة'
-        }))
-    ];
+    // Cheeks zone - سلبية + مشكوك فيها + إيجابية
+    const cheeksNegative = negativeIngredients.slice(0, 2).map(ing => ({
+      ingredient: ing.name,
+      type: 'negative' as const,
+      description: ing.impact || ing.description || 'قد يسبب تهيج أو جفاف'
+    }));
+
+    const cheeksSuspicious = suspiciousIngredients.slice(0, 2).map(ing => ({
+      ingredient: ing.name,
+      type: 'negative' as const,
+      description: ing.concern || ing.description || 'مكون مشكوك فيه قد يؤثر على توازن البشرة'
+    }));
+
+    const cheeksPositive = positiveIngredients.slice(0, 2).map(ing => ({
+      ingredient: ing.name,
+      type: 'positive' as const,
+      description: ing.benefit || ing.description || 'مفيد للبشرة'
+    }));
+
+    const cheeksEffects = [...cheeksNegative, ...cheeksSuspicious, ...cheeksPositive];
 
     if (cheeksEffects.length > 0) {
       zones.push({
@@ -229,27 +242,30 @@ export const FaceARView = ({
         y: y + height * 0.3,
         width: width,
         height: height * 0.4,
-        effects: cheeksEffects
+        effects: cheeksEffects,
       });
     }
 
-    // T-zone - show remaining ingredients
-    const tZoneEffects = [
-      ...negativeIngredients
-        .slice(3, 5)
-        .map(ing => ({
-          ingredient: ing.name,
-          type: 'negative' as const,
-          description: ing.impact || ing.description || 'قد يؤثر على المسام'
-        })),
-      ...positiveIngredients
-        .slice(2, 4)
-        .map(ing => ({
-          ingredient: ing.name,
-          type: 'positive' as const,
-          description: ing.benefit || ing.description || 'يساعد على تحسين البشرة'
-        }))
-    ];
+    // T-zone - باقي السلبية + المشكوك فيها + الإيجابية
+    const tZoneNegative = negativeIngredients.slice(3, 6).map(ing => ({
+      ingredient: ing.name,
+      type: 'negative' as const,
+      description: ing.impact || ing.description || 'قد يؤثر على المسام أو يسبب انسدادها'
+    }));
+
+    const tZoneSuspicious = suspiciousIngredients.slice(2, 5).map(ing => ({
+      ingredient: ing.name,
+      type: 'negative' as const,
+      description: ing.concern || ing.description || 'مكون مشكوك فيه قد يؤثر على منطقة T'
+    }));
+
+    const tZonePositive = positiveIngredients.slice(2, 5).map(ing => ({
+      ingredient: ing.name,
+      type: 'positive' as const,
+      description: ing.benefit || ing.description || 'يساعد على تحسين البشرة'
+    }));
+
+    const tZoneEffects = [...tZoneNegative, ...tZoneSuspicious, ...tZonePositive];
 
     if (tZoneEffects.length > 0) {
       zones.push({
@@ -258,23 +274,33 @@ export const FaceARView = ({
         y: y + height * 0.2,
         width: width * 0.4,
         height: height * 0.5,
-        effects: tZoneEffects
+        effects: tZoneEffects,
       });
     }
 
-    // Fallback: if no zones created, create a general face zone with all ingredients
-    if (zones.length === 0 && (negativeIngredients.length > 0 || positiveIngredients.length > 0)) {
+    // Fallback: إذا لم تُنشأ أي مناطق ولكن هناك مكونات، أنشئ منطقة عامة للوجه
+    const totalIngredientsCount =
+      (negativeIngredients?.length || 0) +
+      (positiveIngredients?.length || 0) +
+      (suspiciousIngredients?.length || 0);
+
+    if (zones.length === 0 && totalIngredientsCount > 0) {
       const allEffects = [
         ...negativeIngredients.map(ing => ({
           ingredient: ing.name,
           type: 'negative' as const,
           description: ing.impact || ing.description || 'تأثير سلبي محتمل'
         })),
+        ...suspiciousIngredients.map(ing => ({
+          ingredient: ing.name,
+          type: 'negative' as const,
+          description: ing.concern || ing.description || 'مكون مشكوك فيه قد يؤثر على البشرة'
+        })),
         ...positiveIngredients.map(ing => ({
           ingredient: ing.name,
           type: 'positive' as const,
           description: ing.benefit || ing.description || 'تأثير إيجابي'
-        }))
+        })),
       ];
 
       zones.push({
@@ -283,7 +309,7 @@ export const FaceARView = ({
         y: y,
         width: width,
         height: height,
-        effects: allEffects
+        effects: allEffects,
       });
     }
 
@@ -478,14 +504,16 @@ export const FaceARView = ({
       <div className="absolute bottom-4 left-4 right-4 md:left-1/2 md:-translate-x-1/2 bg-background/90 backdrop-blur-sm rounded-lg p-3 md:p-4 text-sm text-center z-10 md:max-w-md">
         <p className="font-semibold text-foreground mb-2">📱 معاينة التأثير على الوجه</p>
         <p className="text-muted-foreground text-xs">
-          {faceDetected 
-            ? '✓ وجه للكاميرا وانقر على المناطق الملونة لعرض التفاصيل' 
+          {faceDetected
+            ? (negativeIngredients.length + positiveIngredients.length + suspiciousIngredients.length > 0
+                ? '✓ وجه للكاميرا وانقر على المناطق الملونة لعرض التفاصيل'
+                : 'تم رصد الوجه ولكن لا توجد مكونات ذات تأثير واضح على البشرة في هذا المنتج')
             : 'الرجاء وضع وجهك أمام الكاميرا'}
         </p>
         <div className="flex items-center justify-center gap-4 mt-3 text-xs">
           <div className="flex items-center gap-1">
             <div className="w-3 h-3 bg-destructive rounded-full"></div>
-            <span>تأثير سلبي</span>
+            <span>تأثير سلبي / مشكوك فيه</span>
           </div>
           <div className="flex items-center gap-1">
             <div className="w-3 h-3 bg-success rounded-full"></div>
