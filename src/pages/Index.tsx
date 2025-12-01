@@ -7,7 +7,7 @@ import { Loader2, Beaker, AlertCircle, Upload, X, ScanLine, Crown, Shield, Downl
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import AnalysisResults from "@/components/AnalysisResults";
-import { SkinTypeAnalysis } from "@/components/ar/SkinTypeAnalysis";
+import { Wind, Droplets, Sun, Sparkles, Activity } from "lucide-react";
 import { BarcodeScanner } from '@capacitor-mlkit/barcode-scanning';
 import { Capacitor } from '@capacitor/core';
 import logo from "@/assets/logo.png";
@@ -38,6 +38,47 @@ interface AnalysisResult {
   }>;
   recommendations: string[];
 }
+
+// Skin Type Selection Component
+type SkinType = 'dry' | 'oily' | 'combination' | 'sensitive' | 'normal';
+
+const skinTypeConfig: Record<SkinType, {
+  name: string;
+  icon: React.ReactNode;
+  description: string;
+  color: string;
+}> = {
+  dry: {
+    name: 'جافة',
+    icon: <Wind className="h-6 w-6" />,
+    description: 'بشرة تفتقر إلى الرطوبة',
+    color: 'hover:bg-blue-500/10 hover:border-blue-500/50'
+  },
+  oily: {
+    name: 'دهنية',
+    icon: <Droplets className="h-6 w-6" />,
+    description: 'بشرة تنتج الزيوت بكثرة',
+    color: 'hover:bg-amber-500/10 hover:border-amber-500/50'
+  },
+  combination: {
+    name: 'مختلطة',
+    icon: <Sun className="h-6 w-6" />,
+    description: 'دهنية في منطقة T وجافة في الخدود',
+    color: 'hover:bg-purple-500/10 hover:border-purple-500/50'
+  },
+  sensitive: {
+    name: 'حساسة',
+    icon: <Activity className="h-6 w-6" />,
+    description: 'تتفاعل بسهولة مع المنتجات',
+    color: 'hover:bg-red-500/10 hover:border-red-500/50'
+  },
+  normal: {
+    name: 'طبيعية',
+    icon: <Sparkles className="h-6 w-6" />,
+    description: 'بشرة متوازنة غير دهنية ولا جافة',
+    color: 'hover:bg-green-500/10 hover:border-green-500/50'
+  }
+};
 
 const Index = () => {
   const { subscribed, user } = useAuth();
@@ -310,8 +351,11 @@ const Index = () => {
             {/* Skin Type Selection - First Step */}
             {!skinType && showSkinTypeSelection ? (
               <Card className="p-6 bg-gradient-to-br from-accent/10 to-accent/5 border-accent/30">
-                <div className="space-y-4">
+                <div className="space-y-6">
                   <div className="text-center space-y-2">
+                    <div className="inline-flex items-center justify-center w-16 h-16 rounded-full bg-primary/10 mb-2">
+                      <Sparkles className="h-8 w-8 text-primary" />
+                    </div>
                     <h2 className="text-2xl font-bold text-foreground">
                       الخطوة الأولى: حدد نوع بشرتك
                     </h2>
@@ -319,14 +363,37 @@ const Index = () => {
                       سنقدم لك توصيات مخصصة بناءً على نوع بشرتك لتحديد مدى ملاءمة المنتج لك
                     </p>
                   </div>
-                  <SkinTypeAnalysis
-                    onClose={() => setShowSkinTypeSelection(false)}
-                    onSkinTypeSelected={(type) => {
-                      setSkinType(type);
-                      setShowSkinTypeSelection(false);
-                      toast.success("تم تحديد نوع البشرة بنجاح! الآن يمكنك تحليل المنتج");
-                    }}
-                  />
+
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                    {(Object.keys(skinTypeConfig) as SkinType[]).map((type) => {
+                      const config = skinTypeConfig[type];
+                      return (
+                        <button
+                          key={type}
+                          onClick={() => {
+                            setSkinType(type);
+                            setShowSkinTypeSelection(false);
+                            toast.success("تم تحديد نوع البشرة بنجاح! الآن يمكنك تحليل المنتج");
+                          }}
+                          className={`p-4 rounded-lg border-2 border-border transition-all text-right ${config.color} group`}
+                        >
+                          <div className="flex items-center gap-3">
+                            <div className="p-3 rounded-lg bg-primary/10 group-hover:bg-primary group-hover:text-primary-foreground transition-colors">
+                              {config.icon}
+                            </div>
+                            <div className="flex-1">
+                              <h3 className="text-lg font-bold text-foreground mb-1">
+                                {config.name}
+                              </h3>
+                              <p className="text-xs text-muted-foreground">
+                                {config.description}
+                              </p>
+                            </div>
+                          </div>
+                        </button>
+                      );
+                    })}
+                  </div>
                 </div>
               </Card>
             ) : skinType && (
