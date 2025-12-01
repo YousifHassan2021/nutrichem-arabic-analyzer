@@ -177,13 +177,13 @@ export const FaceARView = ({
   const calculateFaceZones = (x: number, y: number, width: number, height: number): FaceZone[] => {
     const zones: FaceZone[] = [];
 
-    // Forehead zone (for irritation effects)
+    // Forehead zone - show all negative ingredients or general impact
     const foreheadEffects = negativeIngredients
-      .filter(ing => ing.description?.includes('تهيج') || ing.description?.includes('حساسية'))
+      .slice(0, 3) // Take first 3 negative ingredients
       .map(ing => ({
         ingredient: ing.name,
         type: 'negative' as const,
-        description: ing.impact || 'قد يسبب تهيج البشرة'
+        description: ing.impact || ing.description || 'قد يؤثر سلباً على البشرة'
       }));
 
     if (foreheadEffects.length > 0) {
@@ -197,21 +197,21 @@ export const FaceARView = ({
       });
     }
 
-    // Cheeks zone (for hydration/dryness effects)
+    // Cheeks zone - show both positive and negative effects
     const cheeksEffects = [
       ...negativeIngredients
-        .filter(ing => ing.description?.includes('جفاف'))
+        .slice(0, 2)
         .map(ing => ({
           ingredient: ing.name,
           type: 'negative' as const,
-          description: ing.impact || 'قد يسبب جفاف البشرة'
+          description: ing.impact || ing.description || 'قد يسبب تهيج أو جفاف'
         })),
       ...positiveIngredients
-        .filter(ing => ing.description?.includes('ترطيب') || ing.description?.includes('نضارة'))
+        .slice(0, 2)
         .map(ing => ({
           ingredient: ing.name,
           type: 'positive' as const,
-          description: ing.benefit || 'يساعد على ترطيب البشرة'
+          description: ing.benefit || ing.description || 'مفيد للبشرة'
         }))
     ];
 
@@ -226,21 +226,21 @@ export const FaceARView = ({
       });
     }
 
-    // T-zone (for pores/oil control)
+    // T-zone - show remaining ingredients
     const tZoneEffects = [
       ...negativeIngredients
-        .filter(ing => ing.description?.includes('مسام') || ing.description?.includes('دهني'))
+        .slice(3, 5)
         .map(ing => ({
           ingredient: ing.name,
           type: 'negative' as const,
-          description: ing.impact || 'قد يؤثر على المسام'
+          description: ing.impact || ing.description || 'قد يؤثر على المسام'
         })),
       ...positiveIngredients
-        .filter(ing => ing.description?.includes('مسام') || ing.description?.includes('تنظيف'))
+        .slice(2, 4)
         .map(ing => ({
           ingredient: ing.name,
           type: 'positive' as const,
-          description: ing.benefit || 'يساعد على تضييق المسام'
+          description: ing.benefit || ing.description || 'يساعد على تحسين البشرة'
         }))
     ];
 
@@ -252,6 +252,31 @@ export const FaceARView = ({
         width: width * 0.4,
         height: height * 0.5,
         effects: tZoneEffects
+      });
+    }
+
+    // Fallback: if no zones created, create a general face zone with all ingredients
+    if (zones.length === 0 && (negativeIngredients.length > 0 || positiveIngredients.length > 0)) {
+      const allEffects = [
+        ...negativeIngredients.map(ing => ({
+          ingredient: ing.name,
+          type: 'negative' as const,
+          description: ing.impact || ing.description || 'تأثير سلبي محتمل'
+        })),
+        ...positiveIngredients.map(ing => ({
+          ingredient: ing.name,
+          type: 'positive' as const,
+          description: ing.benefit || ing.description || 'تأثير إيجابي'
+        }))
+      ];
+
+      zones.push({
+        name: 'منطقة الوجه',
+        x: x,
+        y: y,
+        width: width,
+        height: height,
+        effects: allEffects
       });
     }
 

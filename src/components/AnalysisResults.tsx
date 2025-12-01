@@ -8,12 +8,15 @@ import {
   ArrowRight,
   RotateCcw,
   ScanFace,
+  Sparkles,
 } from "lucide-react";
 import { Separator } from "@/components/ui/separator";
 import { ARView } from "@/components/ar/ARView";
 import { FaceARView } from "@/components/ar/FaceARView";
+import { SkinTypeAnalysis } from "@/components/ar/SkinTypeAnalysis";
 import { useState } from "react";
 import bodyEffectsImage from "@/assets/body-effects-visualization.jpg";
+import { useToast } from "@/hooks/use-toast";
 
 interface AnalysisResult {
   productName: string;
@@ -51,6 +54,9 @@ interface AnalysisResultsProps {
 const AnalysisResults = ({ result, onReset }: AnalysisResultsProps) => {
   const [showAR, setShowAR] = useState(false);
   const [showFaceAR, setShowFaceAR] = useState(false);
+  const [showSkinTypeAnalysis, setShowSkinTypeAnalysis] = useState(false);
+  const [skinType, setSkinType] = useState<string | null>(null);
+  const { toast } = useToast();
   
   const getScoreColor = (score: number) => {
     if (score >= 80) return "text-success";
@@ -114,6 +120,17 @@ const AnalysisResults = ({ result, onReset }: AnalysisResultsProps) => {
           
           {/* AR Buttons */}
           <div className="pt-4 space-y-3">
+            {/* Skin Type Analysis Button */}
+            <Button
+              onClick={() => setShowSkinTypeAnalysis(true)}
+              variant={skinType ? "secondary" : "default"}
+              className="w-full"
+              size="lg"
+            >
+              <Sparkles className="ml-2 h-5 w-5" />
+              {skinType ? 'تغيير نوع البشرة' : 'تحليل نوع البشرة'}
+            </Button>
+            
             <Button
               onClick={() => setShowFaceAR(true)}
               className="w-full bg-gradient-to-r from-primary to-primary/80 hover:from-primary/90 hover:to-primary/70"
@@ -149,6 +166,20 @@ const AnalysisResults = ({ result, onReset }: AnalysisResultsProps) => {
           positiveIngredients={result.positiveIngredients || []}
           suspiciousIngredients={result.suspiciousIngredients || []}
           onClose={() => setShowFaceAR(false)}
+        />
+      )}
+
+      {/* Skin Type Analysis */}
+      {showSkinTypeAnalysis && (
+        <SkinTypeAnalysis
+          onClose={() => setShowSkinTypeAnalysis(false)}
+          onSkinTypeSelected={(type) => {
+            setSkinType(type);
+            toast({
+              title: 'تم تحديد نوع البشرة',
+              description: 'سيتم تخصيص التوصيات بناءً على نوع بشرتك'
+            });
+          }}
         />
       )}
 
