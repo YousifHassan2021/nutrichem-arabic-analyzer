@@ -4,7 +4,7 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { X, Camera as CameraIcon } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
-import { FaceDetection } from '@mediapipe/face_detection';
+// MediaPipe Tasks Vision will be loaded dynamically in the browser
 
 interface Ingredient {
   name: string;
@@ -49,7 +49,7 @@ export const FaceARView = ({
   const [faceDetected, setFaceDetected] = useState(false);
   const [faceZones, setFaceZones] = useState<FaceZone[]>([]);
   const [selectedZone, setSelectedZone] = useState<FaceZone | null>(null);
-  const faceDetectionRef = useRef<FaceDetection | null>(null);
+  const faceDetectionRef = useRef<any | null>(null);
 
   useEffect(() => {
     initializeFaceDetection();
@@ -81,29 +81,37 @@ export const FaceARView = ({
             await videoRef.current?.play();
             setCameraActive(true);
 
-            // Initialize MediaPipe Face Detection after camera is ready
-            const faceDetection = new FaceDetection({
-              locateFile: (file) => {
-                return `https://cdn.jsdelivr.net/npm/@mediapipe/face_detection/${file}`;
-              }
+            // Initialize MediaPipe Tasks Vision FaceLandmarker (better mobile support)
+            console.log('Face AR - initializing FaceLandmarker');
+            // @ts-ignore - URL-based dynamic import not known to TypeScript
+            const visionModule = await import('https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.3');
+            const { FaceLandmarker, FilesetResolver } = visionModule;
+
+            const vision = await FilesetResolver.forVisionTasks(
+              'https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.3/wasm'
+            );
+
+            faceDetectionRef.current = await FaceLandmarker.createFromOptions(vision, {
+              baseOptions: {
+                modelAssetPath:
+                  'https://storage.googleapis.com/mediapipe-assets/face_landmarker.task',
+              },
+              runningMode: 'VIDEO',
+              numFaces: 1,
             });
 
-            faceDetection.setOptions({
-              model: 'short',
-              // lowered قليلاً لتحسين رصد الوجه على كاميرات الموبايل
-              minDetectionConfidence: 0.3,
-            });
-
-            faceDetection.onResults(onFaceDetectionResults);
-            faceDetectionRef.current = faceDetection;
-
-            // Start processing frames
+            // Start processing frames with FaceLandmarker
             const processFrame = async () => {
               if (videoRef.current && faceDetectionRef.current && videoRef.current.readyState === 4) {
                 try {
-                  await faceDetectionRef.current.send({ image: videoRef.current });
+                  const nowInMs = performance.now();
+                  const results = await faceDetectionRef.current.detectForVideo(
+                    videoRef.current,
+                    nowInMs
+                  );
+                  onFaceDetectionResults(results);
                 } catch (err) {
-                  console.error('Frame processing error:', err);
+                  console.error('Face AR - frame processing error (FaceLandmarker):', err);
                 }
               }
               requestAnimationFrame(processFrame);
@@ -159,7 +167,42 @@ export const FaceARView = ({
     // Clear canvas
     ctx.clearRect(0, 0, canvas.width, canvas.height);
 
-    // MediaPipe قد تُرجع الحقول بأسماء مختلفة حسب الإصدار
+    // 1) Prefer MediaPipe Tasks Vision FaceLandmarker results (faceLandmarks)
+    const faceLandmarks = results?.faceLandmarks?.[0];
+    if (faceLandmarks && Array.isArray(faceLandmarks) && faceLandmarks.length > 0) {
+      let minX = 1;
+      let minY = 1;
+      let maxX = 0;
+      let maxY = 0;
+
+      for (const pt of faceLandmarks) {
+        if (typeof pt.x !== 'number' || typeof pt.y !== 'number') continue;
+        if (pt.x < minX) minX = pt.x;
+        if (pt.x > maxX) maxX = pt.x;
+        if (pt.y < minY) minY = pt.y;
+        if (pt.y > maxY) maxY = pt.y;
+      }
+
+      const x = minX * canvas.width;
+      const y = minY * canvas.height;
+      const width = (maxX - minX) * canvas.width;
+      const height = (maxY - minY) * canvas.height;
+
+      if (!isFinite(x) || !isFinite(y) || !isFinite(width) || !isFinite(height) || width <= 0 || height <= 0) {
+        console.warn('Face AR - invalid faceLandmarker bounding box', { x, y, width, height });
+        setFaceDetected(false);
+        setFaceZones([]);
+        return;
+      }
+
+      setFaceDetected(true);
+      const zones = calculateFaceZones(x, y, width, height);
+      setFaceZones(zones);
+      drawFaceEffects(ctx, zones);
+      return;
+    }
+
+    // 2) Fallback: MediaPipe قد تُرجع الحقول بأسماء مختلفة حسب الإصدار القديم
     const detections =
       results?.detections ||
       results?.faceDetections ||
