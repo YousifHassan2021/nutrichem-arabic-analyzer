@@ -31,10 +31,29 @@ serve(async (req) => {
     // Normalize email: trim and lowercase
     const email = rawEmail?.trim().toLowerCase();
     
-    logStep("Request received", { deviceId, email, rawEmail });
+    logStep("Request received", { deviceId, emailProvided: !!email });
 
     if (!deviceId || !email) {
-      throw new Error("Device ID and email are required");
+      return new Response(JSON.stringify({ 
+        success: false, 
+        message: "Device ID and email are required" 
+      }), {
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+        status: 400,
+      });
+    }
+
+    // Validate email format
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailRegex.test(email)) {
+      logStep("Invalid email format");
+      return new Response(JSON.stringify({ 
+        success: false, 
+        message: "Invalid email format" 
+      }), {
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+        status: 400,
+      });
     }
 
     // Initialize Stripe
