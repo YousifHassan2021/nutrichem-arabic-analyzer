@@ -44,33 +44,49 @@ const AdminDashboard = () => {
   }, [user]);
 
   const checkAdminStatus = async () => {
-    if (!user) {
-      navigate("/");
-      return;
-    }
+    // First check if logged-in user is admin
+    if (user) {
+      try {
+        const { data, error } = await supabase
+          .from('user_roles')
+          .select('role')
+          .eq('user_id', user.id)
+          .eq('role', 'admin')
+          .single();
 
-    try {
-      const { data, error } = await supabase
-        .from('user_roles')
-        .select('role')
-        .eq('user_id', user.id)
-        .eq('role', 'admin')
-        .single();
-
-      if (error || !data) {
-        toast.error("غير مصرح: ليس لديك صلاحيات الأدمن");
-        navigate("/");
-        return;
+        if (data && !error) {
+          setIsAdmin(true);
+          await loadUsers();
+          setLoading(false);
+          return;
+        }
+      } catch (error) {
+        console.error("Error checking admin status:", error);
       }
-
-      setIsAdmin(true);
-      await loadUsers();
-    } catch (error) {
-      console.error("Error checking admin status:", error);
-      navigate("/");
-    } finally {
-      setLoading(false);
     }
+
+    // Check device-based subscription for admin email
+    const deviceId = localStorage.getItem("deviceId");
+    if (deviceId) {
+      try {
+        const { data: subData } = await supabase.functions.invoke("check-subscription", {
+          body: { deviceId, includeEmail: true }
+        });
+        
+        const adminEmails = ['yuosif_74@hotmail.com'];
+        if (subData?.email && adminEmails.includes(subData.email.toLowerCase())) {
+          setIsAdmin(true);
+          await loadUsers();
+          setLoading(false);
+          return;
+        }
+      } catch (error) {
+        console.error("Error checking admin via subscription:", error);
+      }
+    }
+
+    toast.error("غير مصرح: ليس لديك صلاحيات الأدمن");
+    navigate("/");
   };
 
   const loadUsers = async () => {

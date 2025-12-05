@@ -98,27 +98,51 @@ const Index = () => {
 
   useEffect(() => {
     const checkAdminStatus = async () => {
-      if (!user) {
-        setIsAdmin(false);
-        return;
-      }
+      // Check if logged in user is admin
+      if (user) {
+        try {
+          const { data, error } = await supabase
+            .from('user_roles')
+            .select('role')
+            .eq('user_id', user.id)
+            .eq('role', 'admin')
+            .single();
 
-      try {
-        const { data, error } = await supabase
-          .from('user_roles')
-          .select('role')
-          .eq('user_id', user.id)
-          .eq('role', 'admin')
-          .single();
-
-        setIsAdmin(!!data && !error);
-      } catch (error) {
-        setIsAdmin(false);
+          if (data && !error) {
+            setIsAdmin(true);
+            return;
+          }
+        } catch (error) {
+          console.error("Error checking admin status:", error);
+        }
       }
+      
+      // For device-based subscription: check if the subscription email is an admin
+      // Get deviceId and check if subscription email belongs to admin
+      const deviceId = localStorage.getItem("deviceId");
+      if (deviceId) {
+        try {
+          // Check subscription and get associated email from Stripe
+          const { data: subData } = await supabase.functions.invoke("check-subscription", {
+            body: { deviceId, includeEmail: true }
+          });
+          
+          // Admin email hardcoded for device-based access
+          const adminEmails = ['yuosif_74@hotmail.com'];
+          if (subData?.email && adminEmails.includes(subData.email.toLowerCase())) {
+            setIsAdmin(true);
+            return;
+          }
+        } catch (error) {
+          console.error("Error checking admin via subscription:", error);
+        }
+      }
+      
+      setIsAdmin(false);
     };
 
     checkAdminStatus();
-  }, [user]);
+  }, [user, subscribed]);
 
   const handleImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
