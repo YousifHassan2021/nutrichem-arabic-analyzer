@@ -26,7 +26,7 @@ serve(async (req) => {
   try {
     logStep("Function started");
 
-    const { deviceId } = await req.json();
+    const { deviceId, includeEmail } = await req.json();
     logStep("Device ID received", { deviceId });
 
     if (!deviceId) {
@@ -73,12 +73,14 @@ serve(async (req) => {
         });
       }
 
-      // Get product_id from Stripe
+      // Get product_id and optionally email from Stripe
       const stripe = new Stripe(Deno.env.get("STRIPE_SECRET_KEY") || "", { 
         apiVersion: "2025-08-27.basil" 
       });
 
       let productId = null;
+      let email = null;
+      
       if (deviceSub.stripe_subscription_id) {
         try {
           const subscription = await stripe.subscriptions.retrieve(deviceSub.stripe_subscription_id);
@@ -89,12 +91,32 @@ serve(async (req) => {
           logStep("Error retrieving Stripe subscription", { error: errorMsg });
         }
       }
+      
+      // Get email from Stripe customer if requested
+      if (includeEmail && deviceSub.stripe_customer_id) {
+        try {
+          const customer = await stripe.customers.retrieve(deviceSub.stripe_customer_id);
+          if (!('deleted' in customer) && customer.email) {
+            email = customer.email;
+            logStep("Retrieved email from Stripe customer", { email });
+          }
+        } catch (err) {
+          const errorMsg = err instanceof Error ? err.message : String(err);
+          logStep("Error retrieving Stripe customer", { error: errorMsg });
+        }
+      }
 
-      return new Response(JSON.stringify({
+      const response: any = {
         subscribed: true,
         product_id: productId,
         subscription_end: subscriptionEnd
-      }), {
+      };
+      
+      if (includeEmail && email) {
+        response.email = email;
+      }
+
+      return new Response(JSON.stringify(response), {
         headers: { ...corsHeaders, "Content-Type": "application/json" },
         status: 200,
       });
