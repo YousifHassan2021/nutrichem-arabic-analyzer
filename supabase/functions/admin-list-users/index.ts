@@ -26,26 +26,73 @@ serve(async (req) => {
       { auth: { persistSession: false } }
     );
 
-    const authHeader = req.headers.get("Authorization");
-    if (!authHeader) throw new Error("No authorization header provided");
+    const stripe = new Stripe(Deno.env.get("STRIPE_SECRET_KEY") || "", { 
+      apiVersion: "2025-08-27.basil" 
+    });
 
-    const token = authHeader.replace("Bearer ", "");
-    const { data: userData, error: userError } = await supabaseClient.auth.getUser(token);
-    if (userError) throw new Error(`Authentication error: ${userError.message}`);
-    const adminUser = userData.user;
-    if (!adminUser) throw new Error("User not authenticated");
+    // Parse request body for deviceId
+    const { deviceId } = await req.json().catch(() => ({}));
     
-    logStep("User authenticated", { userId: adminUser.id });
+    // Admin emails list
+    const adminEmails = ['yuosif_74@hotmail.com'];
+    let isAdmin = false;
+    
+    // Method 1: Check via JWT if available
+    const authHeader = req.headers.get("Authorization");
+    if (authHeader && authHeader !== "Bearer " + Deno.env.get("SUPABASE_ANON_KEY")) {
+      try {
+        const token = authHeader.replace("Bearer ", "");
+        const { data: userData, error: userError } = await supabaseClient.auth.getUser(token);
+        
+        if (!userError && userData.user) {
+          logStep("User authenticated via JWT", { userId: userData.user.id });
+          
+          // Check if user is admin in user_roles table
+          const { data: roles } = await supabaseClient
+            .from('user_roles')
+            .select('role')
+            .eq('user_id', userData.user.id)
+            .eq('role', 'admin')
+            .single();
 
-    // Check if user is admin
-    const { data: roles, error: rolesError } = await supabaseClient
-      .from('user_roles')
-      .select('role')
-      .eq('user_id', adminUser.id)
-      .eq('role', 'admin')
-      .single();
-
-    if (rolesError || !roles) {
+          if (roles) {
+            isAdmin = true;
+            logStep("Admin verified via user_roles");
+          }
+        }
+      } catch (e) {
+        logStep("JWT auth failed, trying device-based auth");
+      }
+    }
+    
+    // Method 2: Check via deviceId subscription email
+    if (!isAdmin && deviceId) {
+      logStep("Checking admin via deviceId", { deviceId });
+      
+      const { data: deviceSub } = await supabaseClient
+        .from('device_subscriptions')
+        .select('stripe_customer_id')
+        .eq('device_id', deviceId)
+        .eq('status', 'active')
+        .maybeSingle();
+      
+      if (deviceSub?.stripe_customer_id) {
+        try {
+          const customer = await stripe.customers.retrieve(deviceSub.stripe_customer_id);
+          if (!('deleted' in customer) && customer.email) {
+            const email = customer.email.toLowerCase();
+            if (adminEmails.includes(email)) {
+              isAdmin = true;
+              logStep("Admin verified via device subscription email", { email });
+            }
+          }
+        } catch (e) {
+          logStep("Error fetching Stripe customer", { error: e });
+        }
+      }
+    }
+    
+    if (!isAdmin) {
       throw new Error("Unauthorized: User is not an admin");
     }
 
@@ -65,10 +112,7 @@ serve(async (req) => {
       logStep("Error fetching manual subscriptions", { error: manualSubsError });
     }
 
-    // Get Stripe subscriptions
-    const stripe = new Stripe(Deno.env.get("STRIPE_SECRET_KEY") || "", { 
-      apiVersion: "2025-08-27.basil" 
-    });
+    // Stripe client already initialized above
 
     // Build status for authenticated users
     const usersWithStatus = await Promise.all(

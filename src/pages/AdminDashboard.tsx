@@ -91,7 +91,10 @@ const AdminDashboard = () => {
 
   const loadUsers = async () => {
     try {
-      const { data, error } = await supabase.functions.invoke('admin-list-users');
+      const deviceId = localStorage.getItem("deviceId");
+      const { data, error } = await supabase.functions.invoke('admin-list-users', {
+        body: { deviceId }
+      });
       
       if (error) throw error;
       
