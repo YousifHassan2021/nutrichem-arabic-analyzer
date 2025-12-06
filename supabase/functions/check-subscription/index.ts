@@ -26,8 +26,8 @@ serve(async (req) => {
   try {
     logStep("Function started");
 
-    const { deviceId, includeEmail } = await req.json();
-    logStep("Device ID received", { deviceId });
+    const { deviceId, includeEmail, checkAdmin } = await req.json();
+    logStep("Device ID received", { deviceId, checkAdmin });
 
     if (!deviceId) {
       throw new Error("Device ID is required");
@@ -114,6 +114,47 @@ serve(async (req) => {
       
       if (includeEmail && email) {
         response.email = email;
+      }
+
+      // Check admin status if requested
+      if (checkAdmin && email) {
+        const { data: adminRole } = await supabaseClient
+          .from('manual_subscriptions')
+          .select('user_id')
+          .eq('user_email', email.toLowerCase())
+          .eq('status', 'active')
+          .maybeSingle();
+        
+        if (adminRole?.user_id) {
+          // Check if this user has admin role
+          const { data: roleData } = await supabaseClient
+            .from('user_roles')
+            .select('role')
+            .eq('user_id', adminRole.user_id)
+            .eq('role', 'admin')
+            .maybeSingle();
+          
+          response.isAdmin = !!roleData;
+          logStep("Admin check via manual subscription", { isAdmin: !!roleData });
+        } else {
+          // Also check if email directly has admin role via user lookup
+          const { data: users } = await supabaseClient.auth.admin.listUsers();
+          const matchingUser = users?.users?.find(u => u.email?.toLowerCase() === email.toLowerCase());
+          
+          if (matchingUser) {
+            const { data: roleData } = await supabaseClient
+              .from('user_roles')
+              .select('role')
+              .eq('user_id', matchingUser.id)
+              .eq('role', 'admin')
+              .maybeSingle();
+            
+            response.isAdmin = !!roleData;
+            logStep("Admin check via user lookup", { isAdmin: !!roleData });
+          } else {
+            response.isAdmin = false;
+          }
+        }
       }
 
       return new Response(JSON.stringify(response), {

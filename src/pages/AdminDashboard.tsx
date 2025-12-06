@@ -65,16 +65,15 @@ const AdminDashboard = () => {
       }
     }
 
-    // Check device-based subscription for admin email
+    // Check device-based subscription for admin status
     const deviceId = localStorage.getItem("deviceId");
     if (deviceId) {
       try {
         const { data: subData } = await supabase.functions.invoke("check-subscription", {
-          body: { deviceId, includeEmail: true }
+          body: { deviceId, checkAdmin: true }
         });
         
-        const adminEmails = ['yuosif_74@hotmail.com'];
-        if (subData?.email && adminEmails.includes(subData.email.toLowerCase())) {
+        if (subData?.isAdmin) {
           setIsAdmin(true);
           await loadUsers();
           setLoading(false);
