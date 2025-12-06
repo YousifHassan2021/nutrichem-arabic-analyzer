@@ -117,19 +117,15 @@ const Index = () => {
         }
       }
       
-      // For device-based subscription: check if the subscription email is an admin
-      // Get deviceId and check if subscription email belongs to admin
+      // For device-based subscription: check if admin via check-subscription function
       const deviceId = localStorage.getItem("deviceId");
       if (deviceId) {
         try {
-          // Check subscription and get associated email from Stripe
           const { data: subData } = await supabase.functions.invoke("check-subscription", {
-            body: { deviceId, includeEmail: true }
+            body: { deviceId, checkAdmin: true }
           });
           
-          // Admin email hardcoded for device-based access
-          const adminEmails = ['yuosif_74@hotmail.com'];
-          if (subData?.email && adminEmails.includes(subData.email.toLowerCase())) {
+          if (subData?.isAdmin) {
             setIsAdmin(true);
             return;
           }

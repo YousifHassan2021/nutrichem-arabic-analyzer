@@ -33,8 +33,7 @@ serve(async (req) => {
     // Parse request body for deviceId
     const { deviceId } = await req.json().catch(() => ({}));
     
-    // Admin emails list
-    const adminEmails = ['yuosif_74@hotmail.com'];
+    // Check admin status - no more hardcoded emails
     let isAdmin = false;
     
     // Method 1: Check via JWT if available
@@ -81,9 +80,23 @@ serve(async (req) => {
           const customer = await stripe.customers.retrieve(deviceSub.stripe_customer_id);
           if (!('deleted' in customer) && customer.email) {
             const email = customer.email.toLowerCase();
-            if (adminEmails.includes(email)) {
-              isAdmin = true;
-              logStep("Admin verified via device subscription email", { email });
+            
+            // Check if this email has admin role via user lookup
+            const { data: users } = await supabaseClient.auth.admin.listUsers();
+            const matchingUser = users?.users?.find(u => u.email?.toLowerCase() === email);
+            
+            if (matchingUser) {
+              const { data: roleData } = await supabaseClient
+                .from('user_roles')
+                .select('role')
+                .eq('user_id', matchingUser.id)
+                .eq('role', 'admin')
+                .maybeSingle();
+              
+              if (roleData) {
+                isAdmin = true;
+                logStep("Admin verified via device subscription user lookup", { email });
+              }
             }
           }
         } catch (e) {
