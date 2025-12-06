@@ -12,10 +12,11 @@ serve(async (req) => {
 
   try {
     const { ingredients, productName, image, productType = "food" } = await req.json();
+    const DEEPSEEK_API_KEY = Deno.env.get("DEEPSEEK_API_KEY");
     const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
 
-    if (!LOVABLE_API_KEY) {
-      throw new Error("LOVABLE_API_KEY is not configured");
+    if (!DEEPSEEK_API_KEY) {
+      throw new Error("DEEPSEEK_API_KEY is not configured");
     }
 
     console.log("Analyzing ingredients for product:", productName);
@@ -61,10 +62,15 @@ serve(async (req) => {
 
     const systemPrompt = systemPrompts[productType as keyof typeof systemPrompts] || systemPrompts.food;
 
-    // If image is provided, use vision to extract ingredients first
+    // If image is provided, use Lovable AI (Gemini) vision to extract ingredients first
     let ingredientsText = ingredients;
     if (image) {
-      console.log("Extracting ingredients from image...");
+      console.log("Extracting ingredients from image using Lovable AI...");
+      
+      if (!LOVABLE_API_KEY) {
+        throw new Error("LOVABLE_API_KEY is not configured for image extraction");
+      }
+      
       const visionResponse = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
         method: "POST",
         headers: {
@@ -95,6 +101,8 @@ serve(async (req) => {
       });
 
       if (!visionResponse.ok) {
+        const errorText = await visionResponse.text();
+        console.error("Vision API error:", visionResponse.status, errorText);
         throw new Error("Failed to extract ingredients from image");
       }
 
@@ -103,14 +111,16 @@ serve(async (req) => {
       console.log("Extracted ingredients:", ingredientsText);
     }
 
-    const response = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
+    // Use DeepSeek-V3.2 for ingredient analysis
+    console.log("Analyzing with DeepSeek-V3.2...");
+    const response = await fetch("https://api.deepseek.com/v1/chat/completions", {
       method: "POST",
       headers: {
-        Authorization: `Bearer ${LOVABLE_API_KEY}`,
+        Authorization: `Bearer ${DEEPSEEK_API_KEY}`,
         "Content-Type": "application/json",
       },
       body: JSON.stringify({
-        model: "google/gemini-2.5-flash",
+        model: "deepseek-chat",
         messages: [
           { role: "system", content: systemPrompt },
           {
@@ -161,6 +171,9 @@ ${ingredientsText}
     });
 
     if (!response.ok) {
+      const errorText = await response.text();
+      console.error("DeepSeek API error:", response.status, errorText);
+      
       if (response.status === 429) {
         return new Response(
           JSON.stringify({ error: "تم تجاوز حد الطلبات، يرجى المحاولة لاحقاً" }),
@@ -170,18 +183,16 @@ ${ingredientsText}
           }
         );
       }
-      if (response.status === 402) {
+      if (response.status === 402 || response.status === 401) {
         return new Response(
-          JSON.stringify({ error: "يرجى إضافة رصيد إلى حساب Lovable AI الخاص بك" }),
+          JSON.stringify({ error: "خطأ في مفتاح DeepSeek API أو الرصيد" }),
           {
-            status: 402,
+            status: response.status,
             headers: { ...corsHeaders, "Content-Type": "application/json" },
           }
         );
       }
-      const errorText = await response.text();
-      console.error("AI gateway error:", response.status, errorText);
-      return new Response(JSON.stringify({ error: "خطأ في بوابة الذكاء الاصطناعي" }), {
+      return new Response(JSON.stringify({ error: "خطأ في خدمة DeepSeek" }), {
         status: 500,
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
@@ -191,10 +202,10 @@ ${ingredientsText}
     const content = data.choices[0]?.message?.content;
 
     if (!content) {
-      throw new Error("No content in AI response");
+      throw new Error("No content in DeepSeek response");
     }
 
-    console.log("AI Response received:", content.substring(0, 200));
+    console.log("DeepSeek Response received:", content.substring(0, 200));
 
     // Extract JSON from the response
     let analysisResult;
@@ -212,12 +223,12 @@ ${ingredientsText}
         if (jsonObjectMatch) {
           analysisResult = JSON.parse(jsonObjectMatch[0]);
         } else {
-          throw new Error("Could not extract JSON from AI response");
+          throw new Error("Could not extract JSON from DeepSeek response");
         }
       }
     }
 
-    console.log("Analysis completed successfully");
+    console.log("Analysis completed successfully with DeepSeek-V3.2");
 
     return new Response(JSON.stringify(analysisResult), {
       headers: { ...corsHeaders, "Content-Type": "application/json" },
