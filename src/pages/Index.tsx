@@ -87,6 +87,7 @@ const Index = () => {
   const [ingredients, setIngredients] = useState("");
   const [productType, setProductType] = useState<"food" | "cosmetic">("food");
   const [isAnalyzing, setIsAnalyzing] = useState(false);
+  const [analysisStage, setAnalysisStage] = useState<string>("");
   const [analysisResult, setAnalysisResult] = useState<AnalysisResult | null>(null);
   const [imageFile, setImageFile] = useState<File | null>(null);
   const [imagePreview, setImagePreview] = useState<string | null>(null);
@@ -180,20 +181,31 @@ const Index = () => {
 
     setIsAnalyzing(true);
     setAnalysisResult(null);
+    setAnalysisStage(imageFile ? "جاري تحميل الصورة..." : "جاري تجهيز البيانات...");
 
     try {
       const body: any = { productName, productType };
       
       if (imageFile) {
+        setAnalysisStage("جاري تحويل الصورة...");
         const reader = new FileReader();
         const base64Promise = new Promise<string>((resolve) => {
           reader.onloadend = () => resolve(reader.result as string);
           reader.readAsDataURL(imageFile);
         });
         body.image = await base64Promise;
+        setAnalysisStage("جاري استخراج المكونات من الصورة...");
       } else {
         body.ingredients = ingredients;
+        setAnalysisStage("جاري تحليل المكونات...");
       }
+
+      // Add a slight delay then show analysis stage
+      setTimeout(() => {
+        if (imageFile) {
+          setAnalysisStage("جاري تحليل المكونات بالذكاء الاصطناعي...");
+        }
+      }, 3000);
 
       const { data, error } = await supabase.functions.invoke("analyze-ingredients", {
         body,
@@ -201,6 +213,7 @@ const Index = () => {
 
       if (error) throw error;
 
+      setAnalysisStage("تم التحليل!");
       setAnalysisResult(data);
       toast.success("تم التحليل بنجاح!");
     } catch (error) {
@@ -208,6 +221,7 @@ const Index = () => {
       toast.error("حدث خطأ أثناء التحليل. يرجى المحاولة مرة أخرى.");
     } finally {
       setIsAnalyzing(false);
+      setAnalysisStage("");
     }
   };
 
@@ -585,7 +599,7 @@ const Index = () => {
                   {isAnalyzing ? (
                     <>
                       <Loader2 className="ml-2 h-5 w-5 animate-spin" />
-                      جاري التحليل...
+                      {analysisStage || "جاري التحليل..."}
                     </>
                   ) : !subscribed ? (
                     <>
