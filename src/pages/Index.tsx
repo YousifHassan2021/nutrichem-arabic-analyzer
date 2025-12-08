@@ -203,7 +203,7 @@ const Index = () => {
       // Add a slight delay then show analysis stage
       setTimeout(() => {
         if (imageFile) {
-          setAnalysisStage("جاري تحليل المكونات بالذكاء الاصطناعي...");
+          setAnalysisStage("جاري تحليل المكونات...");
         }
       }, 3000);
 
