@@ -10,6 +10,7 @@ import SubscriptionSuccess from "./pages/SubscriptionSuccess";
 import AdminDashboard from "./pages/AdminDashboard";
 import LinkSubscription from "./pages/LinkSubscription";
 import Install from "./pages/Install";
+import PrivacyPolicy from "./pages/PrivacyPolicy";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -28,6 +29,7 @@ const App = () => (
             <Route path="/admin" element={<AdminDashboard />} />
           <Route path="/install" element={<Install />} />
           <Route path="/link-subscription" element={<LinkSubscription />} />
+          <Route path="/privacy-policy" element={<PrivacyPolicy />} />
             {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
             <Route path="*" element={<NotFound />} />
           </Routes>
