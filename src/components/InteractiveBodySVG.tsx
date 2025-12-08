@@ -16,16 +16,16 @@ interface InteractiveBodySVGProps {
 export const InteractiveBodySVG = ({ affectedOrgans }: InteractiveBodySVGProps) => {
   const [selectedOrgan, setSelectedOrgan] = useState<string | null>(null);
 
-  // Organ positions mapped to the anatomical image (percentages)
-  const organPositions: Record<string, { name: string; top: number; left: number; width: number; height: number }> = {
-    brain: { name: "الدماغ", top: 5, left: 35, width: 30, height: 10 },
-    lungs: { name: "الرئتين", top: 22, left: 25, width: 50, height: 15 },
-    heart: { name: "القلب", top: 28, left: 40, width: 20, height: 10 },
-    liver: { name: "الكبد", top: 38, left: 25, width: 25, height: 10 },
-    stomach: { name: "المعدة", top: 40, left: 48, width: 22, height: 12 },
-    kidneys: { name: "الكلى", top: 48, left: 30, width: 40, height: 8 },
-    intestines: { name: "الأمعاء", top: 52, left: 30, width: 40, height: 18 },
-    skin: { name: "الجلد", top: 0, left: 0, width: 100, height: 100 },
+  // Organ positions calibrated precisely to the anatomical image
+  const organPositions: Record<string, { name: string; top: number; left: number; width: number; height: number; borderRadius: string }> = {
+    brain: { name: "الدماغ", top: 3, left: 32, width: 36, height: 12, borderRadius: "50%" },
+    lungs: { name: "الرئتين", top: 20, left: 22, width: 56, height: 18, borderRadius: "30%" },
+    heart: { name: "القلب", top: 25, left: 42, width: 16, height: 12, borderRadius: "50%" },
+    liver: { name: "الكبد", top: 38, left: 22, width: 28, height: 12, borderRadius: "40%" },
+    stomach: { name: "المعدة", top: 38, left: 50, width: 24, height: 14, borderRadius: "45%" },
+    kidneys: { name: "الكلى", top: 50, left: 28, width: 44, height: 10, borderRadius: "35%" },
+    intestines: { name: "الأمعاء", top: 56, left: 30, width: 40, height: 20, borderRadius: "30%" },
+    skin: { name: "الجلد", top: 0, left: 0, width: 100, height: 100, borderRadius: "16px" },
   };
 
   const getOrganGlow = (organId: string) => {
@@ -100,7 +100,7 @@ export const InteractiveBodySVG = ({ affectedOrgans }: InteractiveBodySVGProps) 
               <div
                 key={organId}
                 onClick={() => handleOrganClick(organId)}
-                className={`absolute cursor-pointer transition-all duration-500 rounded-xl ${
+                className={`absolute cursor-pointer transition-all duration-500 ${
                   selectedOrgan === organId ? 'ring-2 ring-white/50 scale-105' : ''
                 }`}
                 style={{
@@ -108,10 +108,11 @@ export const InteractiveBodySVG = ({ affectedOrgans }: InteractiveBodySVGProps) 
                   left: `${pos.left}%`,
                   width: `${pos.width}%`,
                   height: `${pos.height}%`,
+                  borderRadius: pos.borderRadius,
                   background: getOrganGlow(organId),
                   border: `2px solid ${getOrganBorderColor(organId)}`,
                   boxShadow: isAffected 
-                    ? `0 0 20px ${getOrganGlow(organId)}, 0 0 40px ${getOrganGlow(organId)}, inset 0 0 15px ${getOrganGlow(organId)}`
+                    ? `0 0 15px ${getOrganGlow(organId)}, 0 0 30px ${getOrganGlow(organId)}, inset 0 0 10px ${getOrganGlow(organId)}`
                     : 'none',
                   animation: isAffected ? 'pulse 2s infinite' : 'none',
                 }}
