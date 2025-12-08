@@ -15,6 +15,7 @@ serve(async (req) => {
   try {
     const { ingredients, productName, image, productType = "food" } = await req.json();
     const DEEPSEEK_API_KEY = Deno.env.get("DEEPSEEK_API_KEY");
+    const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
 
     if (!DEEPSEEK_API_KEY) {
       throw new Error("DEEPSEEK_API_KEY is not configured");
@@ -23,79 +24,78 @@ serve(async (req) => {
     console.log("[ANALYZE] Started at:", new Date().toISOString());
     console.log("[ANALYZE] Product:", productName, "| Type:", productType, "| Has image:", !!image);
 
-    const systemPrompts = {
-      food: `أنت "المجلس العلمي للكيمياء الغذائية". حلل المكونات الغذائية وقدم تحليلاً علمياً شاملاً باللغة العربية.
-
-المبادئ:
-1. استند إلى أدلة علمية (FDA, EFSA)
-2. أي مكون غير واضح = مخاطرة
-3. كشف الخداع: "تجزئة السكر"، مكونات غامضة
-4. تحليل الحلال/الحرام: منتجات الخنزير أو الكحول = حرام`,
+    // If image is provided, use Lovable AI (Gemini) to extract ingredients first
+    // DeepSeek does NOT support image analysis
+    let ingredientsText = ingredients;
+    
+    if (image) {
+      console.log("[ANALYZE] Extracting ingredients from image using Gemini...");
       
-      cosmetic: `أنت "المجلس العلمي لكيمياء المستحضرات التجميلية". حلل مكونات المستحضرات التجميلية وقدم تحليلاً علمياً باللغة العربية.
-
-المبادئ:
-1. استند إلى أدلة علمية (FDA, EWG, EU Cosmetics)
-2. ركز على: Parabens, Phthalates, Sulfates, Formaldehyde, Siloxanes
-3. تقييم الحلال: مشتقات الخنزير، الكحول الإيثيلي، مكونات حيوانية غير حلال`
-    };
-
-    const systemPrompt = systemPrompts[productType as keyof typeof systemPrompts] || systemPrompts.food;
-
-    // Build the user prompt based on whether we have an image or text
-    let userPrompt: string;
-    
-    if (image) {
-      // For images, ask DeepSeek to extract and analyze in one go
-      userPrompt = `الصورة المرفقة تحتوي على قائمة مكونات منتج "${productName}".
-
-المطلوب:
-1. استخرج المكونات من الصورة
-2. حلل كل مكون علمياً
-
-قدم التحليل بصيغة JSON:
-{
-  "productName": "اسم المنتج",
-  "overallScore": رقم 0-100,
-  "verdict": "ممتاز/جيد/مقبول/سيء/خطر",
-  "summary": "ملخص قصير",
-  "halalStatus": "حلال/حرام",
-  "negativeIngredients": [{"name": "", "description": "", "severity": "خطر/عالي/متوسط", "impact": "", "affectedOrgan": ""}],
-  "positiveIngredients": [{"name": "", "description": "", "benefit": "", "affectedOrgan": ""}],
-  "suspiciousIngredients": [{"name": "", "description": "", "concern": "", "affectedOrgan": ""}],
-  "recommendations": []
-}
-
-الأعضاء المتاحة: الكبد، الكلى، الجلد، الرئتين، الدماغ، القلب، المعدة، الأمعاء`;
-    } else {
-      userPrompt = `حلل المكونات التالية للمنتج "${productName}":
-${ingredients}
-
-قدم التحليل بصيغة JSON:
-{
-  "productName": "اسم المنتج",
-  "overallScore": رقم 0-100,
-  "verdict": "ممتاز/جيد/مقبول/سيء/خطر",
-  "summary": "ملخص قصير",
-  "halalStatus": "حلال/حرام",
-  "negativeIngredients": [{"name": "", "description": "", "severity": "خطر/عالي/متوسط", "impact": "", "affectedOrgan": ""}],
-  "positiveIngredients": [{"name": "", "description": "", "benefit": "", "affectedOrgan": ""}],
-  "suspiciousIngredients": [{"name": "", "description": "", "concern": "", "affectedOrgan": ""}],
-  "recommendations": []
-}
-
-الأعضاء المتاحة: الكبد، الكلى، الجلد، الرئتين، الدماغ، القلب، المعدة، الأمعاء`;
-    }
-
-    // Build message content
-    const messageContent: any[] = [{ type: "text", text: userPrompt }];
-    
-    if (image) {
-      messageContent.push({
-        type: "image_url",
-        image_url: { url: image }
+      if (!LOVABLE_API_KEY) {
+        throw new Error("LOVABLE_API_KEY is not configured for image extraction");
+      }
+      
+      const extractStart = Date.now();
+      const visionResponse = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${LOVABLE_API_KEY}`,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          model: "google/gemini-2.5-flash",
+          messages: [
+            {
+              role: "user",
+              content: [
+                {
+                  type: "text",
+                  text: "استخرج قائمة المكونات من هذه الصورة. اكتب فقط المكونات كما هي مكتوبة على المنتج، بدون أي تعليقات."
+                },
+                {
+                  type: "image_url",
+                  image_url: { url: image }
+                }
+              ]
+            }
+          ],
+        }),
       });
+
+      console.log("[ANALYZE] Gemini extraction took:", Date.now() - extractStart, "ms");
+
+      if (!visionResponse.ok) {
+        const errorText = await visionResponse.text();
+        console.error("[ANALYZE] Gemini error:", visionResponse.status, errorText);
+        throw new Error("Failed to extract ingredients from image");
+      }
+
+      const visionData = await visionResponse.json();
+      ingredientsText = visionData.choices[0].message.content;
+      console.log("[ANALYZE] Extracted ingredients:", ingredientsText.substring(0, 100));
     }
+
+    const systemPrompt = productType === "cosmetic" 
+      ? `أنت خبير تحليل مستحضرات تجميلية. حلل المكونات وقدم تحليلاً علمياً باللغة العربية. ركز على: Parabens, Phthalates, Sulfates, Formaldehyde.`
+      : `أنت خبير تحليل مكونات غذائية. حلل المكونات وقدم تحليلاً علمياً باللغة العربية. كشف الحلال/الحرام.`;
+
+    const userPrompt = `حلل المكونات التالية للمنتج "${productName}":
+${ingredientsText}
+
+قدم التحليل بصيغة JSON فقط:
+{
+  "productName": "اسم المنتج",
+  "overallScore": رقم 0-100,
+  "verdict": "ممتاز/جيد/مقبول/سيء/خطر",
+  "summary": "ملخص قصير",
+  "halalStatus": "حلال/حرام",
+  "negativeIngredients": [{"name": "", "description": "", "severity": "خطر/عالي/متوسط", "impact": "", "affectedOrgan": ""}],
+  "positiveIngredients": [{"name": "", "description": "", "benefit": "", "affectedOrgan": ""}],
+  "suspiciousIngredients": [{"name": "", "description": "", "concern": "", "affectedOrgan": ""}],
+  "recommendations": []
+}
+
+الأعضاء: الكبد، الكلى، الجلد، الرئتين، الدماغ، القلب، المعدة، الأمعاء`;
 
     console.log("[ANALYZE] Calling DeepSeek API...");
     const apiCallStart = Date.now();
@@ -110,7 +110,7 @@ ${ingredients}
         model: "deepseek-chat",
         messages: [
           { role: "system", content: systemPrompt },
-          { role: "user", content: messageContent },
+          { role: "user", content: userPrompt },
         ],
         temperature: 0.3,
         max_tokens: 2000,
@@ -129,12 +129,6 @@ ${ingredients}
           { status: 429, headers: { ...corsHeaders, "Content-Type": "application/json" } }
         );
       }
-      if (response.status === 402 || response.status === 401) {
-        return new Response(
-          JSON.stringify({ error: "خطأ في مفتاح DeepSeek API" }),
-          { status: response.status, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-        );
-      }
       return new Response(
         JSON.stringify({ error: "خطأ في خدمة التحليل" }),
         { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
@@ -147,8 +141,6 @@ ${ingredients}
     if (!content) {
       throw new Error("No content in response");
     }
-
-    console.log("[ANALYZE] Response received, parsing JSON...");
 
     // Extract JSON from the response
     let analysisResult;
@@ -169,8 +161,7 @@ ${ingredients}
     }
 
     const totalTime = Date.now() - startTime;
-    console.log("[ANALYZE] Total processing time:", totalTime, "ms");
-    console.log("[ANALYZE] Completed successfully");
+    console.log("[ANALYZE] Total time:", totalTime, "ms | Completed successfully");
 
     return new Response(JSON.stringify(analysisResult), {
       headers: { ...corsHeaders, "Content-Type": "application/json" },
