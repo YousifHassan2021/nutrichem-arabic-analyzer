@@ -132,19 +132,25 @@ export const InteractiveBodySVG = ({ affectedOrgans }: InteractiveBodySVGProps) 
             );
           })}
 
-          {/* Skin Overlay - Full body glow if affected */}
+          {/* Skin Overlay - Outline only on body silhouette */}
           {isOrganAffected("skin") && (
             <div
               onClick={() => handleOrganClick("skin")}
-              className="absolute inset-0 cursor-pointer rounded-2xl transition-all duration-500"
+              className="absolute cursor-pointer transition-all duration-500"
               style={{
-                background: `linear-gradient(to bottom, ${getOrganGlow("skin")} 0%, transparent 30%, transparent 70%, ${getOrganGlow("skin")} 100%)`,
+                top: '2%',
+                left: '25%',
+                width: '50%',
+                height: '96%',
+                borderRadius: '40% 40% 35% 35%',
+                background: 'transparent',
                 border: `3px solid ${getOrganBorderColor("skin")}`,
-                boxShadow: `0 0 30px ${getOrganGlow("skin")}, inset 0 0 50px ${getOrganGlow("skin")}`,
+                boxShadow: `0 0 15px ${getOrganGlow("skin")}, 0 0 25px ${getOrganBorderColor("skin")}`,
+                animation: 'pulse 2s infinite',
               }}
             >
               <span 
-                className="absolute bottom-4 left-1/2 transform -translate-x-1/2 text-white text-sm font-bold bg-black/60 px-3 py-1 rounded-full backdrop-blur-sm"
+                className="absolute bottom-2 left-1/2 transform -translate-x-1/2 text-white text-xs font-bold bg-black/60 px-2 py-0.5 rounded-full backdrop-blur-sm"
                 style={{ textShadow: '0 0 10px rgba(0,0,0,0.8)' }}
               >
                 الجلد
