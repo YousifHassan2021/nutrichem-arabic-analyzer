@@ -135,8 +135,7 @@ export const InteractiveBodySVG = ({ affectedOrgans }: InteractiveBodySVGProps) 
           {/* Skin Overlay - Outline only on body silhouette */}
           {isOrganAffected("skin") && (
             <div
-              onClick={() => handleOrganClick("skin")}
-              className="absolute cursor-pointer transition-all duration-500"
+              className="absolute transition-all duration-500 pointer-events-none"
               style={{
                 top: '2%',
                 left: '25%',
@@ -150,7 +149,8 @@ export const InteractiveBodySVG = ({ affectedOrgans }: InteractiveBodySVGProps) 
               }}
             >
               <span 
-                className="absolute bottom-2 left-1/2 transform -translate-x-1/2 text-white text-xs font-bold bg-black/60 px-2 py-0.5 rounded-full backdrop-blur-sm"
+                onClick={() => handleOrganClick("skin")}
+                className="absolute bottom-2 left-1/2 transform -translate-x-1/2 text-white text-xs font-bold bg-black/60 px-2 py-0.5 rounded-full backdrop-blur-sm cursor-pointer pointer-events-auto hover:bg-black/80"
                 style={{ textShadow: '0 0 10px rgba(0,0,0,0.8)' }}
               >
                 الجلد
