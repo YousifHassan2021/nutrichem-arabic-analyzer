@@ -18,13 +18,13 @@ export const InteractiveBodySVG = ({ affectedOrgans }: InteractiveBodySVGProps) 
 
   // Organ positions calibrated precisely to the anatomical image
   const organPositions: Record<string, { name: string; top: number; left: number; width: number; height: number; borderRadius: string }> = {
-    brain: { name: "الدماغ", top: 3, left: 32, width: 36, height: 12, borderRadius: "50%" },
-    lungs: { name: "الرئتين", top: 20, left: 22, width: 56, height: 18, borderRadius: "30%" },
-    heart: { name: "القلب", top: 25, left: 42, width: 16, height: 12, borderRadius: "50%" },
-    liver: { name: "الكبد", top: 38, left: 22, width: 28, height: 12, borderRadius: "40%" },
-    stomach: { name: "المعدة", top: 38, left: 50, width: 24, height: 14, borderRadius: "45%" },
-    kidneys: { name: "الكلى", top: 50, left: 28, width: 44, height: 10, borderRadius: "35%" },
-    intestines: { name: "الأمعاء", top: 56, left: 30, width: 40, height: 20, borderRadius: "30%" },
+    brain: { name: "الدماغ", top: 2, left: 35, width: 30, height: 10, borderRadius: "50%" },
+    lungs: { name: "الرئتين", top: 22, left: 28, width: 44, height: 14, borderRadius: "25%" },
+    heart: { name: "القلب", top: 26, left: 45, width: 12, height: 10, borderRadius: "50%" },
+    liver: { name: "الكبد", top: 37, left: 30, width: 20, height: 10, borderRadius: "40%" },
+    stomach: { name: "المعدة", top: 40, left: 48, width: 18, height: 12, borderRadius: "45%" },
+    kidneys: { name: "الكلى", top: 46, left: 32, width: 36, height: 8, borderRadius: "35%" },
+    intestines: { name: "الأمعاء", top: 52, left: 35, width: 30, height: 16, borderRadius: "30%" },
     skin: { name: "الجلد", top: 0, left: 0, width: 100, height: 100, borderRadius: "16px" },
   };
 
