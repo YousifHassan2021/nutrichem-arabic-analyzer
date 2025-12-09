@@ -12,6 +12,46 @@ const logStep = (step: string, details?: any) => {
   console.log(`[LINK-DEVICE-SUB] ${step}${detailsStr}`);
 };
 
+// Rate limiting configuration
+const RATE_LIMIT_WINDOW_MS = 60 * 60 * 1000; // 1 hour
+const MAX_ATTEMPTS_PER_WINDOW = 5;
+const rateLimitCache = new Map<string, { count: number; firstAttempt: number }>();
+
+// Clean up old rate limit entries periodically
+const cleanupRateLimitCache = () => {
+  const now = Date.now();
+  for (const [key, value] of rateLimitCache.entries()) {
+    if (now - value.firstAttempt > RATE_LIMIT_WINDOW_MS) {
+      rateLimitCache.delete(key);
+    }
+  }
+};
+
+// Check rate limit for an identifier (IP or deviceId)
+const checkRateLimit = (identifier: string): { allowed: boolean; remaining: number; resetIn: number } => {
+  cleanupRateLimitCache();
+  const now = Date.now();
+  const entry = rateLimitCache.get(identifier);
+  
+  if (!entry) {
+    rateLimitCache.set(identifier, { count: 1, firstAttempt: now });
+    return { allowed: true, remaining: MAX_ATTEMPTS_PER_WINDOW - 1, resetIn: RATE_LIMIT_WINDOW_MS };
+  }
+  
+  if (now - entry.firstAttempt > RATE_LIMIT_WINDOW_MS) {
+    rateLimitCache.set(identifier, { count: 1, firstAttempt: now });
+    return { allowed: true, remaining: MAX_ATTEMPTS_PER_WINDOW - 1, resetIn: RATE_LIMIT_WINDOW_MS };
+  }
+  
+  if (entry.count >= MAX_ATTEMPTS_PER_WINDOW) {
+    const resetIn = RATE_LIMIT_WINDOW_MS - (now - entry.firstAttempt);
+    return { allowed: false, remaining: 0, resetIn };
+  }
+  
+  entry.count++;
+  return { allowed: true, remaining: MAX_ATTEMPTS_PER_WINDOW - entry.count, resetIn: RATE_LIMIT_WINDOW_MS - (now - entry.firstAttempt) };
+};
+
 serve(async (req) => {
   if (req.method === "OPTIONS") {
     return new Response(null, { headers: corsHeaders });
@@ -40,6 +80,25 @@ serve(async (req) => {
       }), {
         headers: { ...corsHeaders, "Content-Type": "application/json" },
         status: 400,
+      });
+    }
+
+    // Rate limiting check using deviceId as identifier
+    const rateLimit = checkRateLimit(deviceId);
+    if (!rateLimit.allowed) {
+      const resetMinutes = Math.ceil(rateLimit.resetIn / 60000);
+      logStep("Rate limit exceeded", { deviceId, resetIn: resetMinutes });
+      return new Response(JSON.stringify({ 
+        success: false, 
+        message: `تم تجاوز الحد المسموح من المحاولات. يرجى المحاولة بعد ${resetMinutes} دقيقة.` 
+      }), {
+        headers: { 
+          ...corsHeaders, 
+          "Content-Type": "application/json",
+          "X-RateLimit-Remaining": "0",
+          "X-RateLimit-Reset": String(Math.ceil(rateLimit.resetIn / 1000))
+        },
+        status: 429,
       });
     }
 
