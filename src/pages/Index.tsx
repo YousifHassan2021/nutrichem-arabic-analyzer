@@ -213,13 +213,14 @@ const Index = () => {
 
       if (error) throw error;
 
-      setAnalysisStage("تم التحليل!");
+      // تحديث الحالة فوراً بدون تأخير
+      setIsAnalyzing(false);
+      setAnalysisStage("");
       setAnalysisResult(data);
       toast.success("تم التحليل بنجاح!");
     } catch (error) {
       console.error("Error analyzing ingredients:", error);
       toast.error("حدث خطأ أثناء التحليل. يرجى المحاولة مرة أخرى.");
-    } finally {
       setIsAnalyzing(false);
       setAnalysisStage("");
     }
