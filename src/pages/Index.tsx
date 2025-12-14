@@ -187,29 +187,50 @@ const Index = () => {
       const body: any = { productName, productType };
       
       if (imageFile) {
-        setAnalysisStage("جاري تحويل الصورة...");
-        const reader = new FileReader();
-        const base64Promise = new Promise<string>((resolve) => {
-          reader.onloadend = () => resolve(reader.result as string);
-          reader.readAsDataURL(imageFile);
-        });
-        body.image = await base64Promise;
+        setAnalysisStage("جاري ضغط الصورة...");
+        
+        // ضغط الصورة لتسريع الإرسال
+        const compressImage = (file: File, maxWidth = 1024): Promise<string> => {
+          return new Promise((resolve, reject) => {
+            const img = new Image();
+            const canvas = document.createElement('canvas');
+            const ctx = canvas.getContext('2d');
+            
+            img.onload = () => {
+              let { width, height } = img;
+              if (width > maxWidth) {
+                height = (height * maxWidth) / width;
+                width = maxWidth;
+              }
+              canvas.width = width;
+              canvas.height = height;
+              ctx?.drawImage(img, 0, 0, width, height);
+              resolve(canvas.toDataURL('image/jpeg', 0.8));
+            };
+            img.onerror = reject;
+            img.src = URL.createObjectURL(file);
+          });
+        };
+        
+        body.image = await compressImage(imageFile);
         setAnalysisStage("جاري استخراج المكونات من الصورة...");
       } else {
         body.ingredients = ingredients;
         setAnalysisStage("جاري تحليل المكونات...");
       }
 
-      // Add a slight delay then show analysis stage
-      setTimeout(() => {
+      // تحديث مرحلة التحليل بعد فترة قصيرة
+      const stageTimeout = setTimeout(() => {
         if (imageFile) {
           setAnalysisStage("جاري تحليل المكونات...");
         }
-      }, 3000);
+      }, 2000);
 
       const { data, error } = await supabase.functions.invoke("analyze-ingredients", {
         body,
       });
+      
+      clearTimeout(stageTimeout);
 
       if (error) throw error;
 
