@@ -187,33 +187,54 @@ const Index = () => {
       const body: any = { productName, productType };
       
       if (imageFile) {
-        setAnalysisStage("جاري ضغط الصورة...");
+        setAnalysisStage("جاري تحميل الصورة...");
         
-        // ضغط الصورة لتسريع الإرسال
-        const compressImage = (file: File, maxWidth = 1024): Promise<string> => {
+        // تحويل الصورة إلى base64 مع ضغط بسيط
+        const compressImage = (file: File, maxWidth = 1200): Promise<string> => {
           return new Promise((resolve, reject) => {
             const img = new Image();
-            const canvas = document.createElement('canvas');
-            const ctx = canvas.getContext('2d');
+            const objectUrl = URL.createObjectURL(file);
             
             img.onload = () => {
-              let { width, height } = img;
-              if (width > maxWidth) {
-                height = (height * maxWidth) / width;
-                width = maxWidth;
+              try {
+                const canvas = document.createElement('canvas');
+                const ctx = canvas.getContext('2d');
+                
+                let { width, height } = img;
+                if (width > maxWidth) {
+                  height = Math.round((height * maxWidth) / width);
+                  width = maxWidth;
+                }
+                
+                canvas.width = width;
+                canvas.height = height;
+                ctx?.drawImage(img, 0, 0, width, height);
+                
+                const dataUrl = canvas.toDataURL('image/jpeg', 0.85);
+                URL.revokeObjectURL(objectUrl);
+                resolve(dataUrl);
+              } catch (err) {
+                URL.revokeObjectURL(objectUrl);
+                reject(err);
               }
-              canvas.width = width;
-              canvas.height = height;
-              ctx?.drawImage(img, 0, 0, width, height);
-              resolve(canvas.toDataURL('image/jpeg', 0.8));
             };
-            img.onerror = reject;
-            img.src = URL.createObjectURL(file);
+            
+            img.onerror = () => {
+              URL.revokeObjectURL(objectUrl);
+              reject(new Error('فشل في تحميل الصورة'));
+            };
+            
+            img.src = objectUrl;
           });
         };
         
-        body.image = await compressImage(imageFile);
-        setAnalysisStage("جاري استخراج المكونات من الصورة...");
+        try {
+          body.image = await compressImage(imageFile);
+          setAnalysisStage("جاري استخراج المكونات من الصورة...");
+        } catch (imgError) {
+          console.error("Image compression error:", imgError);
+          throw new Error("فشل في معالجة الصورة. يرجى المحاولة مرة أخرى.");
+        }
       } else {
         body.ingredients = ingredients;
         setAnalysisStage("جاري تحليل المكونات...");
