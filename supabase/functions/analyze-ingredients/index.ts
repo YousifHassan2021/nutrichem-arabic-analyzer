@@ -76,8 +76,8 @@ serve(async (req) => {
     }
 
     const systemPrompt = productType === "cosmetic" 
-      ? `أنت خبير تحليل مستحضرات تجميلية. حلل المكونات وقدم تحليلاً علمياً باللغة العربية. ركز على: Parabens, Phthalates, Sulfates, Formaldehyde.`
-      : `أنت خبير تحليل مكونات غذائية. حلل المكونات وقدم تحليلاً علمياً باللغة العربية. كشف الحلال/الحرام.`;
+      ? `أنت خبير تحليل مستحضرات تجميلية وباحث علمي. حلل المكونات وقدم تحليلاً علمياً موثقاً باللغة العربية. ركز على: Parabens, Phthalates, Sulfates, Formaldehyde. يجب أن تقدم مراجع علمية حقيقية من مصادر موثوقة.`
+      : `أنت خبير تحليل مكونات غذائية وباحث علمي. حلل المكونات وقدم تحليلاً علمياً موثقاً باللغة العربية. كشف الحلال/الحرام. يجب أن تقدم مراجع علمية حقيقية من مصادر موثوقة.`;
 
     const userPrompt = `حلل المكونات التالية للمنتج "${productName}":
 ${ingredientsText}
@@ -92,8 +92,19 @@ ${ingredientsText}
   "negativeIngredients": [{"name": "", "description": "", "severity": "خطر/عالي/متوسط", "impact": "", "affectedOrgan": ""}],
   "positiveIngredients": [{"name": "", "description": "", "benefit": "", "affectedOrgan": ""}],
   "suspiciousIngredients": [{"name": "", "description": "", "concern": "", "affectedOrgan": ""}],
-  "recommendations": []
+  "recommendations": [],
+  "references": [{"title": "عنوان الدراسة", "url": "رابط المصدر", "summary": "ملخص العلاقة بالمنتج"}]
 }
+
+تعليمات المراجع العلمية (إلزامية):
+- يجب تقديم 3 مراجع علمية على الأقل
+- استخدم روابط حقيقية من: PubMed (pubmed.ncbi.nlm.nih.gov), FDA (fda.gov), EFSA (efsa.europa.eu), WHO, PubChem, NIH, WebMD, Mayo Clinic
+- إذا لم تجد دراسة محددة للمكون، قدم رابط صفحة المكون على PubChem أو FDA
+- أمثلة روابط صالحة:
+  * https://pubmed.ncbi.nlm.nih.gov/[PMID]
+  * https://pubchem.ncbi.nlm.nih.gov/compound/[compound-name]
+  * https://www.fda.gov/food/food-additives-petitions/food-additive-status-list
+  * https://www.efsa.europa.eu/en/topics/topic/food-additives
 
 الأعضاء: الكبد، الكلى، الجلد، الرئتين، الدماغ، القلب، المعدة، الأمعاء`;
 
