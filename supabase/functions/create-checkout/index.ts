@@ -34,7 +34,15 @@ serve(async (req) => {
     const session = await stripe.checkout.sessions.create({
       line_items: [
         {
-          price: "price_1SYkrFKW4EObOGwjNVEln3mo",
+          price_data: {
+            currency: "sar",
+            product: "prod_TVmQGSpQx51wkk",
+            unit_amount: 1200,
+            recurring: {
+              interval: "month",
+              interval_count: 3, // كل 3 أشهر
+            },
+          },
           quantity: 1,
         },
       ],
