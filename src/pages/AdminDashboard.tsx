@@ -35,6 +35,7 @@ const AdminDashboard = () => {
   const [notes, setNotes] = useState("");
   const [extendDialogOpen, setExtendDialogOpen] = useState(false);
   const [selectedSubId, setSelectedSubId] = useState<string | null>(null);
+  const [selectedSubSource, setSelectedSubSource] = useState<string | null>(null);
   const [extendMonths, setExtendMonths] = useState("1");
   const [extending, setExtending] = useState(false);
   const [cancelling, setCancelling] = useState<string | null>(null);
@@ -139,8 +140,19 @@ const AdminDashboard = () => {
 
     try {
       setExtending(true);
-      const { data, error } = await supabase.functions.invoke('extend-manual-subscription', {
-        body: { subscriptionId: selectedSubId, additionalMonths: extendMonths }
+      const deviceId = localStorage.getItem("deviceId");
+      
+      // Choose the right function based on subscription source
+      const functionName = selectedSubSource === 'stripe' 
+        ? 'extend-stripe-subscription' 
+        : 'extend-manual-subscription';
+      
+      const { data, error } = await supabase.functions.invoke(functionName, {
+        body: { 
+          subscriptionId: selectedSubId, 
+          additionalMonths: extendMonths,
+          deviceId 
+        }
       });
       
       if (error) throw error;
@@ -148,6 +160,7 @@ const AdminDashboard = () => {
       toast.success("تم تمديد الاشتراك بنجاح");
       setExtendDialogOpen(false);
       setSelectedSubId(null);
+      setSelectedSubSource(null);
       setExtendMonths("1");
       await loadUsers();
     } catch (error: any) {
@@ -158,15 +171,22 @@ const AdminDashboard = () => {
     }
   };
 
-  const handleCancelSubscription = async (subscriptionId: string) => {
+  const handleCancelSubscription = async (subscriptionId: string, source: string) => {
     if (!confirm("هل أنت متأكد من إلغاء هذا الاشتراك؟")) {
       return;
     }
 
     try {
       setCancelling(subscriptionId);
-      const { data, error } = await supabase.functions.invoke('cancel-manual-subscription', {
-        body: { subscriptionId }
+      const deviceId = localStorage.getItem("deviceId");
+      
+      // Choose the right function based on subscription source
+      const functionName = source === 'stripe' 
+        ? 'cancel-stripe-subscription' 
+        : 'cancel-manual-subscription';
+      
+      const { data, error } = await supabase.functions.invoke(functionName, {
+        body: { subscriptionId, deviceId, cancelImmediately: true }
       });
       
       if (error) throw error;
@@ -181,8 +201,9 @@ const AdminDashboard = () => {
     }
   };
 
-  const openExtendDialog = (subscriptionId: string) => {
+  const openExtendDialog = (subscriptionId: string, source: string) => {
     setSelectedSubId(subscriptionId);
+    setSelectedSubSource(source);
     setExtendDialogOpen(true);
   };
 
@@ -348,22 +369,13 @@ const AdminDashboard = () => {
                       }
                     </TableCell>
                     <TableCell>
-                      {user.subscriptionSource === 'stripe' && user.subscriptionStatus === 'active' && (
-                        <div className="flex gap-2">
-                          <Badge variant="secondary">Stripe - نشط</Badge>
-                        </div>
-                      )}
-                      {user.subscriptionSource === 'device' && user.subscriptionStatus === 'active' && (
-                        <div className="flex gap-2">
-                          <Badge variant="secondary">جهاز - نشط</Badge>
-                        </div>
-                      )}
-                      {user.subscriptionSource === 'manual' && user.subscriptionId && (
+                      {/* Stripe Subscriptions */}
+                      {user.subscriptionSource === 'stripe' && user.subscriptionStatus === 'active' && user.subscriptionId && (
                         <div className="flex gap-2">
                           <Button
                             size="sm"
                             variant="outline"
-                            onClick={() => openExtendDialog(user.subscriptionId!)}
+                            onClick={() => openExtendDialog(user.subscriptionId!, 'stripe')}
                           >
                             <Clock className="h-4 w-4 ml-1" />
                             تمديد
@@ -371,7 +383,46 @@ const AdminDashboard = () => {
                           <Button
                             size="sm"
                             variant="destructive"
-                            onClick={() => handleCancelSubscription(user.subscriptionId!)}
+                            onClick={() => handleCancelSubscription(user.subscriptionId!, 'stripe')}
+                            disabled={cancelling === user.subscriptionId}
+                          >
+                            {cancelling === user.subscriptionId ? (
+                              <Loader2 className="h-4 w-4 animate-spin" />
+                            ) : (
+                              <>
+                                <XCircle className="h-4 w-4 ml-1" />
+                                إلغاء
+                              </>
+                            )}
+                          </Button>
+                        </div>
+                      )}
+                      {user.subscriptionSource === 'stripe' && user.subscriptionStatus === 'active' && !user.subscriptionId && (
+                        <Badge variant="secondary">Stripe - نشط</Badge>
+                      )}
+                      
+                      {/* Device Subscriptions */}
+                      {user.subscriptionSource === 'device' && user.subscriptionStatus === 'active' && (
+                        <div className="flex gap-2">
+                          <Badge variant="secondary">جهاز - نشط</Badge>
+                        </div>
+                      )}
+                      
+                      {/* Manual Subscriptions */}
+                      {user.subscriptionSource === 'manual' && user.subscriptionId && (
+                        <div className="flex gap-2">
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            onClick={() => openExtendDialog(user.subscriptionId!, 'manual')}
+                          >
+                            <Clock className="h-4 w-4 ml-1" />
+                            تمديد
+                          </Button>
+                          <Button
+                            size="sm"
+                            variant="destructive"
+                            onClick={() => handleCancelSubscription(user.subscriptionId!, 'manual')}
                             disabled={cancelling === user.subscriptionId}
                           >
                             {cancelling === user.subscriptionId ? (
