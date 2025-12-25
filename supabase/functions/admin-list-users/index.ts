@@ -209,65 +209,86 @@ serve(async (req) => {
       logStep("Error fetching device subscriptions", { error: deviceSubsError });
     }
 
-    const deviceUsers = deviceSubs
-      ? await Promise.all(
-          deviceSubs.map(async (sub) => {
-            let email = null;
-            // Calculate expiry as 3 months from subscription creation
-            const createdDate = new Date(sub.created_at);
-            const expiryDate = new Date(createdDate);
-            expiryDate.setMonth(expiryDate.getMonth() + 3);
-            let expiresAt = expiryDate.toISOString();
-            
-            // Check if subscription is still active based on expiry
-            const now = new Date();
-            let subscriptionStatus = expiryDate > now && sub.status === 'active' ? 'active' : 'expired';
-            let subscriptionSource = 'device';
-            let subscriptionId = sub.stripe_subscription_id || sub.id;
+    // Create a map to track unique users by email
+    const usersByEmail = new Map();
+    
+    // Add auth users first
+    for (const user of usersWithStatus) {
+      if (user.email) {
+        usersByEmail.set(user.email.toLowerCase(), user);
+      } else {
+        usersByEmail.set(user.id, user);
+      }
+    }
+    
+    // Add pending manual subs
+    for (const user of pendingUsers) {
+      if (user.email && !usersByEmail.has(user.email.toLowerCase())) {
+        usersByEmail.set(user.email.toLowerCase(), user);
+      }
+    }
 
-            // Keep the calculated 3-month expiry, but verify status with Stripe
-            if (sub.stripe_subscription_id) {
-              try {
-                const subscription = await stripe.subscriptions.retrieve(
-                  sub.stripe_subscription_id,
-                );
-                // If Stripe says it's canceled or inactive, update status
-                if (subscription.status !== 'active') {
-                  subscriptionStatus = 'expired';
-                }
-                subscriptionSource = 'stripe';
-                logStep("Successfully verified Stripe subscription for device", {
-                  subscriptionId: sub.stripe_subscription_id,
-                  expiresAt,
-                  stripeStatus: subscription.status,
-                  finalStatus: subscriptionStatus
-                });
-              } catch (error) {
-                logStep("Error fetching Stripe subscription for device", {
-                  subscriptionId: sub.stripe_subscription_id,
-                  error: error instanceof Error ? error.message : String(error),
-                });
-                // Keep the calculated expiry and status
-                subscriptionSource = 'stripe';
-              }
+    // Process device subscriptions and merge with existing users
+    if (deviceSubs) {
+      for (const sub of deviceSubs) {
+        let email = null;
+        
+        // Calculate expiry as 3 months from subscription creation
+        const createdDate = new Date(sub.created_at);
+        const expiryDate = new Date(createdDate);
+        expiryDate.setMonth(expiryDate.getMonth() + 3);
+        let expiresAt = expiryDate.toISOString();
+        
+        // Check if subscription is still active based on expiry
+        const now = new Date();
+        let subscriptionStatus = expiryDate > now && sub.status === 'active' ? 'active' : 'expired';
+        let subscriptionSource = 'stripe';
+        let subscriptionId = sub.stripe_subscription_id || sub.id;
+
+        // Verify with Stripe
+        if (sub.stripe_subscription_id) {
+          try {
+            const subscription = await stripe.subscriptions.retrieve(sub.stripe_subscription_id);
+            if (subscription.status !== 'active' && subscription.status !== 'trialing') {
+              subscriptionStatus = 'expired';
+            } else {
+              subscriptionStatus = 'active';
             }
+            logStep("Verified Stripe subscription", {
+              subscriptionId: sub.stripe_subscription_id,
+              status: subscription.status
+            });
+          } catch (error) {
+            logStep("Error fetching Stripe subscription", { error });
+          }
+        }
 
-            // Try to get email from Stripe customer
-            if (sub.stripe_customer_id) {
-              try {
-                const customer = await stripe.customers.retrieve(sub.stripe_customer_id);
-                if (!('deleted' in customer) && customer.email) {
-                  email = customer.email;
-                }
-              } catch (error) {
-                logStep("Error fetching Stripe customer for device", {
-                  customerId: sub.stripe_customer_id,
-                  error,
-                });
-              }
+        // Get email from Stripe customer
+        if (sub.stripe_customer_id) {
+          try {
+            const customer = await stripe.customers.retrieve(sub.stripe_customer_id);
+            if (!('deleted' in customer) && customer.email) {
+              email = customer.email;
             }
+          } catch (error) {
+            logStep("Error fetching Stripe customer", { error });
+          }
+        }
 
-            return {
+        // If user with this email already exists, update their subscription info if device sub is more recent
+        if (email) {
+          const existingUser = usersByEmail.get(email.toLowerCase());
+          if (existingUser) {
+            // Update existing user with device subscription data if it's stripe-based
+            if (existingUser.subscriptionSource !== 'stripe' || !existingUser.subscriptionId) {
+              existingUser.subscriptionStatus = subscriptionStatus;
+              existingUser.subscriptionSource = subscriptionSource;
+              existingUser.expiresAt = expiresAt;
+              existingUser.subscriptionId = subscriptionId;
+            }
+          } else {
+            // Add new device-based user
+            usersByEmail.set(email.toLowerCase(), {
               id: sub.device_id,
               email,
               created_at: sub.created_at,
@@ -275,12 +296,24 @@ serve(async (req) => {
               subscriptionSource,
               expiresAt,
               subscriptionId,
-            };
-          }),
-        )
-      : [];
+            });
+          }
+        } else {
+          // Device subscription without email - add as separate entry
+          usersByEmail.set(sub.device_id, {
+            id: sub.device_id,
+            email: null,
+            created_at: sub.created_at,
+            subscriptionStatus,
+            subscriptionSource,
+            expiresAt,
+            subscriptionId,
+          });
+        }
+      }
+    }
 
-    const allUsersWithStatus = [...usersWithStatus, ...pendingUsers, ...deviceUsers];
+    const allUsersWithStatus = Array.from(usersByEmail.values());
     logStep("Users fetched", { count: allUsersWithStatus.length });
 
     return new Response(JSON.stringify({ 
