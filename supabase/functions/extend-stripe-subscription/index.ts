@@ -58,18 +58,25 @@ serve(async (req) => {
       currentPeriodEnd: subscription.current_period_end 
     });
 
-    if (subscription.status !== "active") {
+    if (subscription.status !== "active" && subscription.status !== "trialing") {
       throw new Error("Subscription is not active");
     }
 
-    // Calculate new billing cycle anchor (extend by additional months)
-    const currentPeriodEnd = subscription.current_period_end;
-    const additionalSeconds = parseInt(additionalMonths) * 30 * 24 * 60 * 60;
-    const newPeriodEnd = currentPeriodEnd + additionalSeconds;
-
-    // Update subscription with trial_end to effectively extend it
-    logStep("Extending subscription", { newPeriodEnd: new Date(newPeriodEnd * 1000).toISOString() });
+    // Calculate new expiration date
+    const currentEnd = subscription.current_period_end 
+      ? subscription.current_period_end 
+      : Math.floor(Date.now() / 1000);
     
+    const additionalSeconds = parseInt(additionalMonths) * 30 * 24 * 60 * 60;
+    const newPeriodEnd = currentEnd + additionalSeconds;
+
+    logStep("Extending subscription", { 
+      currentEnd,
+      additionalMonths,
+      newPeriodEnd: new Date(newPeriodEnd * 1000).toISOString() 
+    });
+    
+    // Update subscription with trial_end to effectively extend it
     const updatedSubscription = await stripe.subscriptions.update(subscriptionId, {
       trial_end: newPeriodEnd,
       proration_behavior: 'none',
