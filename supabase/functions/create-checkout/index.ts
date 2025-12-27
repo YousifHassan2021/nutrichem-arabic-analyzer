@@ -31,18 +31,24 @@ serve(async (req) => {
     });
 
     logStep("Creating checkout session");
+    
+    // إنشاء سعر ربع سنوي (كل 3 أشهر) مباشرة في Stripe
+    const price = await stripe.prices.create({
+      currency: "sar",
+      product: "prod_TVmQGSpQx51wkk",
+      unit_amount: 1200,
+      recurring: {
+        interval: "month",
+        interval_count: 3, // كل 3 أشهر
+      },
+    });
+    
+    logStep("Price created", { priceId: price.id });
+    
     const session = await stripe.checkout.sessions.create({
       line_items: [
         {
-          price_data: {
-            currency: "sar",
-            product: "prod_TVmQGSpQx51wkk",
-            unit_amount: 1200,
-            recurring: {
-              interval: "month",
-              interval_count: 3, // كل 3 أشهر
-            },
-          },
+          price: price.id,
           quantity: 1,
         },
       ],
